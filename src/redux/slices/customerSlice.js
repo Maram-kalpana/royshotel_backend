@@ -4,7 +4,8 @@ import { customers as customersData } from '../../data'
 const customerSlice = createSlice({
   name: 'customers',
   initialState: {
-    list: customersData,
+    list: customersData.filter((c) => c.status !== 'checked-out'),
+    history: customersData.filter((c) => c.status === 'checked-out'),
     selectedCustomer: null,
   },
   reducers: {
@@ -21,8 +22,13 @@ const customerSlice = createSlice({
     checkoutCustomer: (state, action) => {
       const index = state.list.findIndex((c) => c.id === action.payload)
       if (index !== -1) {
-        state.list[index].status = 'checked-out'
-        state.list[index].checkOutDate = new Date().toISOString().split('T')[0]
+        const customer = {
+          ...state.list[index],
+          status: 'checked-out',
+          checkOutDate: new Date().toISOString().split('T')[0],
+        }
+        state.history.unshift(customer)
+        state.list.splice(index, 1)
       }
     },
   },

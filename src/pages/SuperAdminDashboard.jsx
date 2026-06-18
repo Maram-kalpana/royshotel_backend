@@ -1,24 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
-  Building2, DoorOpen, Bed, Users, DollarSign, TrendingUp, Activity,
+  DoorOpen, Bed, Users, CalendarCheck,
 } from 'lucide-react'
-import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
-} from 'recharts'
-import Navbar from '../components/Navbar'
 import StatCard from '../components/StatCard'
 import ChartCard from '../components/ChartCard'
 import PageTransition from '../components/PageTransition'
-import { StatCardSkeleton, ChartSkeleton } from '../components/LoadingSkeleton'
-import { useHotel } from '../hooks/useStore'
+import { StatCardSkeleton } from '../components/LoadingSkeleton'
+import StatusBadge from '../components/StatusBadge'
+import { useHotel, useBookings, useAccounts } from '../hooks/useStore'
+import { formatDate, formatDateTime, getOccupancyPercentage } from '../utils/helpers'
 import { formatCurrency } from '../utils/helpers'
-import { analytics } from '../data'
 import { motion } from 'framer-motion'
-
-const COLORS = ['#1e40af', '#3b82f6', '#d4af37', '#10b981']
 
 const SuperAdminDashboard = () => {
   const { stats } = useHotel()
+  const { list: bookings } = useBookings()
+  const { list: incomeRecords } = useAccounts()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,28 +23,37 @@ const SuperAdminDashboard = () => {
     return () => clearTimeout(timer)
   }, [])
 
+  const recentBookings = useMemo(
+    () => [...bookings].slice(0, 6),
+    [bookings],
+  )
+
+  const recentIncome = useMemo(
+    () => [...incomeRecords].slice(0, 5),
+    [incomeRecords],
+  )
+
   const kpiCards = [
-    { title: 'Total Floors', value: stats.totalFloors, icon: Building2, color: 'royal' },
     { title: 'Total Rooms', value: stats.totalRooms, icon: DoorOpen, color: 'violet' },
     { title: 'Total Beds', value: stats.totalBeds, icon: Bed, color: 'gold' },
     { title: 'Occupied Beds', value: stats.occupiedBeds, icon: Users, color: 'rose' },
     { title: 'Vacant Beds', value: stats.vacantBeds, icon: Bed, color: 'emerald' },
     { title: 'Total Customers', value: stats.totalCustomers, icon: Users, color: 'slate' },
-    { title: 'Revenue', value: formatCurrency(stats.revenue), icon: DollarSign, color: 'gold', trend: 12 },
+    { title: 'Total Bookings', value: bookings.length, icon: CalendarCheck, color: 'royal' },
   ]
 
+  const occupancyPct = getOccupancyPercentage(stats.occupiedBeds, stats.totalBeds)
+
   return (
-    <>
-      <Navbar title="Super Admin Dashboard" />
-      <PageTransition className="page-container">
+    <PageTransition className="page-container">
         <div className="mb-6">
           <h2 className="section-title">Dashboard Overview</h2>
-          <p className="text-slate-500 mt-1">Monitor your hotel performance at a glance</p>
+          <p className="text-slate-500 mt-1">Monitor hotel data and operations — read-only view</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
           {loading
-            ? Array.from({ length: 7 }).map((_, i) => <StatCardSkeleton key={i} />)
+            ? Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)
             : kpiCards.map((card, i) => (
               <motion.div key={card.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                 <StatCard {...card} />
@@ -56,82 +62,104 @@ const SuperAdminDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-          {loading ? (
-            <>
-              <ChartSkeleton /><ChartSkeleton /><ChartSkeleton />
-            </>
-          ) : (
-            <>
-              <ChartCard title="Occupancy Chart" subtitle="Monthly occupancy rate">
-                <ResponsiveContainer width="100%" height={260}>
-                  <AreaChart data={analytics.occupancyTrend}>
-                    <defs>
-                      <linearGradient id="occGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1e40af" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#1e40af" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="occupancy" stroke="#1e40af" fill="url(#occGrad)" strokeWidth={2} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </ChartCard>
+          <ChartCard title="Recent Bookings" subtitle="Latest booking activity">
+            <div className="space-y-3 max-h-[320px] overflow-y-auto">
+              {recentBookings.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">No bookings yet</p>
+              ) : (
+                recentBookings.map((booking, i) => (
+                  <motion.div
+                    key={booking.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{booking.customerName}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Floor {booking.floorNumber} · Room {booking.roomNumber} · Bed {booking.bedNumber}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">{formatDate(booking.checkInDate)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold text-slate-900">{formatCurrency(booking.totalAmount)}</p>
+                      <div className="mt-1"><StatusBadge status="booked" /></div>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </ChartCard>
 
-              <ChartCard title="Revenue Chart" subtitle="Monthly revenue trend">
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={analytics.revenueTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(v) => formatCurrency(v)} />
-                    <Bar dataKey="revenue" fill="#d4af37" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
+          <ChartCard title="Occupancy Summary" subtitle="Current bed utilization">
+            <div className="flex flex-col items-center justify-center py-6">
+              <div className="relative flex h-36 w-36 items-center justify-center">
+                <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" strokeWidth="8" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="42"
+                    fill="none"
+                    stroke="#1e40af"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    strokeDasharray={`${occupancyPct * 2.64} 264`}
+                  />
+                </svg>
+                <div className="absolute text-center">
+                  <p className="text-3xl font-bold text-slate-900 font-[Poppins]">{occupancyPct}%</p>
+                  <p className="text-xs text-slate-500">Occupied</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mt-6 w-full">
+                <div className="text-center p-3 rounded-xl bg-emerald-50">
+                  <p className="text-lg font-bold text-emerald-700">{stats.vacantBeds}</p>
+                  <p className="text-xs text-emerald-600 mt-1">Vacant</p>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-red-50">
+                  <p className="text-lg font-bold text-red-700">{stats.occupiedBeds}</p>
+                  <p className="text-xs text-red-600 mt-1">Occupied</p>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-amber-50">
+                  <p className="text-lg font-bold text-amber-700">{stats.reservedBeds}</p>
+                  <p className="text-xs text-amber-600 mt-1">Reserved</p>
+                </div>
+              </div>
+            </div>
+          </ChartCard>
 
-              <ChartCard title="Room Utilization" subtitle="By room type">
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={analytics.roomUtilization} dataKey="utilized" nameKey="type" cx="50%" cy="50%" outerRadius={90} label>
-                      {analytics.roomUtilization.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            </>
-          )}
+          <ChartCard title="Daily Income" subtitle="Submitted by Admin">
+            <div className="space-y-3 max-h-[320px] overflow-y-auto">
+              {recentIncome.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">No income records yet</p>
+              ) : (
+                recentIncome.map((record, i) => (
+                  <motion.div
+                    key={record.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900">{formatCurrency(record.totalIncome)}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {record.bookedRooms} booked · {record.vacantRooms} vacant
+                        </p>
+                      </div>
+                      <span className="text-xs text-slate-400 shrink-0">{formatDate(record.date)}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">{formatDateTime(record.createdAt)}</p>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </ChartCard>
         </div>
-
-        <ChartCard title="Recent Activity" subtitle="Latest hotel operations">
-          <div className="space-y-4">
-            {analytics.recentActivity.map((activity, i) => (
-              <motion.div
-                key={activity.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 hover:bg-blue-50/50 transition-colors"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 shrink-0">
-                  <Activity size={18} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">{activity.message}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{activity.time} · {activity.user}</p>
-                </div>
-                <span className="text-xs font-medium px-2 py-1 rounded-full bg-white text-slate-600 capitalize">{activity.type}</span>
-              </motion.div>
-            ))}
-          </div>
-        </ChartCard>
       </PageTransition>
-    </>
   )
 }
 

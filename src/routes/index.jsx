@@ -6,17 +6,16 @@ import { ROLES } from '../utils/helpers'
 import Login from '../pages/Login'
 import SuperAdminDashboard from '../pages/SuperAdminDashboard'
 import AdminDashboard from '../pages/AdminDashboard'
-import Floors from '../pages/Floors'
 import Rooms from '../pages/Rooms'
-import Beds from '../pages/Beds'
-import Vacancies from '../pages/Vacancies'
 import Customers from '../pages/Customers'
 import Bookings from '../pages/Bookings'
+import Vacancy from '../pages/Vacancy'
+import Pendings from '../pages/Pendings'
+import Accounts from '../pages/Accounts'
 import CustomerProfile from '../pages/CustomerProfile'
 import Checkout from '../pages/Checkout'
-import Analytics from '../pages/Analytics'
-import Reports from '../pages/Reports'
 import Settings from '../pages/Settings'
+import RoleDashboardRedirect from './RoleDashboardRedirect'
 
 const AppRoutes = () => (
   <Routes>
@@ -30,17 +29,22 @@ const AppRoutes = () => (
       <Route path="/admin/dashboard" element={
         <ProtectedRoute allowedRoles={[ROLES.ADMIN]}><AdminDashboard /></ProtectedRoute>
       } />
-      <Route path="/floors" element={<Floors />} />
       <Route path="/rooms" element={<Rooms />} />
-      <Route path="/beds" element={<Beds />} />
-      <Route path="/vacancies" element={<Vacancies />} />
       <Route path="/customers" element={<Customers />} />
       <Route path="/customers/:id" element={<CustomerProfile />} />
       <Route path="/bookings" element={<Bookings />} />
+      <Route path="/pendings" element={<Pendings />} />
+      <Route path="/vacancy" element={<Vacancy />} />
+      <Route path="/accounts" element={<Accounts />} />
       <Route path="/checkout/:id" element={<Checkout />} />
-      <Route path="/analytics" element={<Analytics />} />
-      <Route path="/reports" element={<Reports />} />
       <Route path="/settings" element={<Settings />} />
+
+      {/* Legacy routes redirected */}
+      <Route path="/floors" element={<Navigate to="/rooms" replace />} />
+      <Route path="/beds" element={<Navigate to="/rooms" replace />} />
+      <Route path="/vacancies" element={<Navigate to="/vacancy" replace />} />
+      <Route path="/reports" element={<Navigate to="/accounts" replace />} />
+      <Route path="/analytics" element={<RoleDashboardRedirect />} />
     </Route>
 
     <Route path="*" element={<Navigate to="/login" replace />} />

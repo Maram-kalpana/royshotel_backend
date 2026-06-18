@@ -1,7 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { Tabs, Tab, Box, Typography, Avatar, Chip } from '@mui/material'
 import { useState } from 'react'
-import Navbar from '../components/Navbar'
 import PageTransition from '../components/PageTransition'
 import ProfileCard from '../components/ProfileCard'
 import DataTable from '../components/DataTable'
@@ -20,12 +19,9 @@ const CustomerProfile = () => {
 
   if (!customer) {
     return (
-      <>
-        <Navbar title="Customer Profile" />
-        <PageTransition className="page-container">
-          <Typography>Customer not found</Typography>
-        </PageTransition>
-      </>
+      <PageTransition className="page-container">
+        <Typography>Customer not found</Typography>
+      </PageTransition>
     )
   }
 
@@ -39,9 +35,7 @@ const CustomerProfile = () => {
   }))
 
   return (
-    <>
-      <Navbar title="Customer Profile" />
-      <PageTransition className="page-container">
+    <PageTransition className="page-container">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <ProfileCard customer={customer} booking={booking} />
 
@@ -122,7 +116,6 @@ const CustomerProfile = () => {
           </div>
         </div>
       </PageTransition>
-    </>
   )
 }
 

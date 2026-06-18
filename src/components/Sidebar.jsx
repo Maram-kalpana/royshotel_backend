@@ -1,23 +1,29 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  LayoutDashboard, Layers, DoorOpen, Bed, Users, CalendarCheck, Map, BarChart3, FileText, Settings, LogOut, ChevronLeft, ChevronRight, Crown,
+  LayoutDashboard, DoorOpen, Users, CalendarCheck, MapPin, Wallet, Settings, LogOut, ChevronLeft, ChevronRight, Crown, Clock,
 } from 'lucide-react'
 import { useAuth, useUI, useAppDispatch } from '../hooks/useStore'
 import { toggleSidebar } from '../redux/slices/uiSlice'
 import { logout } from '../redux/slices/authSlice'
-import { MENU_ITEMS, ROLES } from '../utils/helpers'
+import { getMenuItems, ROLES } from '../utils/helpers'
+import { SIDEBAR_WIDTH, NAVBAR_HEIGHT } from '../utils/layout'
 import toast from 'react-hot-toast'
 
 const iconMap = {
-  LayoutDashboard, Layers, DoorOpen, Bed, Users, CalendarCheck, Map, BarChart3, FileText, Settings,
+  LayoutDashboard, DoorOpen, Users, CalendarCheck, Clock, MapPin, Wallet, Settings,
 }
+
+const NAVY = '#0B1F4D'
+const ACTIVE_BG = 'rgba(96, 165, 250, 0.25)'
+const ACTIVE_TEXT = '#93c5fd'
 
 const Sidebar = () => {
   const { user } = useAuth()
   const { sidebarCollapsed } = useUI()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  const width = sidebarCollapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded
 
   const handleLogout = () => {
     dispatch(logout())
@@ -27,24 +33,30 @@ const Sidebar = () => {
 
   return (
     <motion.aside
-      animate={{ width: sidebarCollapsed ? 80 : 260 }}
+      animate={{ width }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="glass-sidebar fixed left-0 top-0 z-40 flex h-screen flex-col"
+      className="fixed left-0 z-[1200] flex flex-col"
+      style={{
+        backgroundColor: NAVY,
+        width,
+        top: NAVBAR_HEIGHT,
+        height: `calc(100vh - ${NAVBAR_HEIGHT}px)`,
+      }}
     >
-      <div className="flex items-center gap-3 p-4 border-b border-slate-100">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-royal text-white shrink-0">
-          <Crown size={20} />
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/10 min-h-[56px]">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-white shrink-0">
+          <Crown size={16} />
         </div>
         {!sidebarCollapsed && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <p className="text-xs text-slate-500 leading-none">Luxury Hotel</p>
-            <p className="font-semibold text-slate-900 font-[Poppins] text-sm">Management System</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-w-0">
+            <p className="text-[10px] text-blue-200 leading-none truncate">Luxury Hotel</p>
+            <p className="font-semibold text-white font-[Poppins] text-xs truncate">Management</p>
           </motion.div>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-        {MENU_ITEMS.map((item) => {
+      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        {getMenuItems(user?.role).map((item) => {
           const Icon = iconMap[item.icon]
           const dashboardPath = user?.role === ROLES.SUPER_ADMIN ? '/super-admin/dashboard' : '/admin/dashboard'
           const path = item.path === '/dashboard' ? dashboardPath : item.path
@@ -53,45 +65,36 @@ const Sidebar = () => {
             <NavLink
               key={item.path}
               to={path}
+              title={sidebarCollapsed ? item.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-700 shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`
+                `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all ${
+                  isActive ? 'shadow-sm' : 'text-white/80 hover:bg-white/10 hover:text-white'
+                } ${sidebarCollapsed ? 'justify-center' : ''}`
               }
+              style={({ isActive }) => isActive ? { backgroundColor: ACTIVE_BG, color: ACTIVE_TEXT } : undefined}
             >
-              <Icon size={20} className="shrink-0" />
-              {!sidebarCollapsed && <span>{item.label}</span>}
+              <Icon size={18} className="shrink-0 text-white" />
+              {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
             </NavLink>
           )
         })}
       </nav>
 
-      <div className="border-t border-slate-100 p-3 space-y-1">
-        {!sidebarCollapsed && user && (
-          <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-blue-400 text-white text-sm font-bold">
-              {user.name?.charAt(0)}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900 truncate">{user.name}</p>
-              <p className="text-xs text-slate-500 capitalize">{user.role?.replace('_', ' ')}</p>
-            </div>
-          </div>
-        )}
+      <div className="border-t border-white/10 p-2">
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-red-300 hover:bg-red-500/10 transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
+          title={sidebarCollapsed ? 'Logout' : undefined}
         >
-          <LogOut size={20} />
+          <LogOut size={18} />
           {!sidebarCollapsed && <span>Logout</span>}
         </button>
       </div>
 
       <button
         onClick={() => dispatch(toggleSidebar())}
-        className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-blue-600"
+        className="absolute -right-3 top-16 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-blue-600"
+        aria-label="Toggle sidebar"
       >
         {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { LogIn, LogOut, Bed, Users, CreditCard } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import Navbar from '../components/Navbar'
 import StatCard from '../components/StatCard'
 import ChartCard from '../components/ChartCard'
 import PageTransition from '../components/PageTransition'
@@ -38,9 +37,7 @@ const AdminDashboard = () => {
   ]
 
   return (
-    <>
-      <Navbar title="Admin Dashboard" />
-      <PageTransition className="page-container">
+    <PageTransition className="page-container">
         <div className="mb-6">
           <h2 className="section-title">Today's Overview</h2>
           <p className="text-slate-500 mt-1">Manage daily hotel operations efficiently</p>
@@ -92,7 +89,6 @@ const AdminDashboard = () => {
           </div>
         </div>
       </PageTransition>
-    </>
   )
 }
 

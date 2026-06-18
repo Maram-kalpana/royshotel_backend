@@ -1,56 +1,68 @@
 import { AppBar, Toolbar, IconButton, Badge, Avatar, InputBase, Box } from '@mui/material'
-import { Menu, Search, Bell, Sun, Moon } from 'lucide-react'
+import { Menu, Search, Bell } from 'lucide-react'
 import { useUI, useAuth, useAppDispatch } from '../hooks/useStore'
-import { toggleSidebar, setTheme } from '../redux/slices/uiSlice'
-import { motion } from 'framer-motion'
+import { toggleSidebar, setGlobalSearch } from '../redux/slices/uiSlice'
+import { NAVBAR_HEIGHT } from '../utils/layout'
 
-const Navbar = ({ title }) => {
-  const { sidebarCollapsed, theme } = useUI()
+const Navbar = () => {
+  const { globalSearch } = useUI()
   const { user } = useAuth()
   const dispatch = useAppDispatch()
 
   return (
     <AppBar
-      position="sticky"
+      position="fixed"
       elevation={0}
       sx={{
-        bgcolor: 'rgba(255,255,255,0.85)',
-        backdropFilter: 'blur(12px)',
+        top: 0,
+        left: 0,
+        right: 0,
+        width: '100%',
+        height: NAVBAR_HEIGHT,
+        bgcolor: '#ffffff',
         borderBottom: '1px solid #e2e8f0',
         color: '#0f172a',
-        ml: `${sidebarCollapsed ? 80 : 260}px`,
-        width: `calc(100% - ${sidebarCollapsed ? 80 : 260}px)`,
-        transition: 'all 0.3s ease',
+        zIndex: 1300,
       }}
     >
-      <Toolbar className="gap-4">
-        <IconButton className="md:hidden!" onClick={() => dispatch(toggleSidebar())} edge="start">
+      <Toolbar disableGutters sx={{ height: NAVBAR_HEIGHT, minHeight: `${NAVBAR_HEIGHT}px !important`, px: 2, gap: 2 }}>
+        <IconButton onClick={() => dispatch(toggleSidebar())} edge="start" size="small" sx={{ flexShrink: 0, display: { lg: 'none' } }}>
           <Menu size={20} />
         </IconButton>
-        <motion.h1
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="text-xl font-semibold font-[Poppins] text-slate-900 hidden sm:block"
+
+        <Box
+          sx={{
+            width: { xs: '100%', md: '70%' },
+            maxWidth: 720,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            px: 2,
+            height: 44,
+            borderRadius: 2,
+            border: '1px solid #e2e8f0',
+            bgcolor: '#f8fafc',
+          }}
         >
-          {title}
-        </motion.h1>
-        <Box className="flex-1 max-w-md mx-auto hidden md:flex items-center gap-2 bg-slate-50 rounded-xl px-4 py-2 border border-slate-100">
-          <Search size={16} className="text-slate-400" />
-          <InputBase placeholder="Search anything..." className="flex-1 text-sm" />
+          <Search size={18} className="text-slate-400 shrink-0" />
+          <InputBase
+            placeholder="Search..."
+            value={globalSearch}
+            onChange={(e) => dispatch(setGlobalSearch(e.target.value))}
+            sx={{ flex: 1, fontSize: '0.875rem' }}
+          />
         </Box>
-        <div className="flex items-center gap-2 ml-auto">
-          <IconButton onClick={() => dispatch(setTheme(theme === 'light' ? 'dark' : 'light'))} size="small">
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          </IconButton>
-          <IconButton size="small">
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto', flexShrink: 0 }}>
+          <IconButton size="small" aria-label="Notifications">
             <Badge badgeContent={3} color="error" variant="dot">
               <Bell size={18} />
             </Badge>
           </IconButton>
-          <Avatar sx={{ width: 36, height: 36, bgcolor: '#1e40af', fontSize: 14 }}>
+          <Avatar sx={{ width: 38, height: 38, bgcolor: '#0B1F4D', fontSize: 14 }}>
             {user?.name?.charAt(0)}
           </Avatar>
-        </div>
+        </Box>
       </Toolbar>
     </AppBar>
   )

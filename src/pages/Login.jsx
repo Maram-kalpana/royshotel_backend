@@ -17,8 +17,8 @@ const Login = () => {
 
   const handleLogin = (role) => {
     const users = {
-      [ROLES.SUPER_ADMIN]: { name: 'Super Admin', email: 'superadmin@luxehotel.com', role: ROLES.SUPER_ADMIN },
-      [ROLES.ADMIN]: { name: 'Hotel Admin', email: 'admin@luxehotel.com', role: ROLES.ADMIN },
+      [ROLES.SUPER_ADMIN]: { id: 'super-admin-1', name: 'Super Admin', email: 'superadmin@luxehotel.com', role: ROLES.SUPER_ADMIN },
+      [ROLES.ADMIN]: { id: 'admin-1', name: 'Hotel Admin', email: 'admin@luxehotel.com', role: ROLES.ADMIN },
     }
     dispatch(login(users[role]))
     toast.success(`Welcome, ${users[role].name}!`)

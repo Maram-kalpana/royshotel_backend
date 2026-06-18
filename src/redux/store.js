@@ -4,6 +4,8 @@ import hotelReducer from './slices/hotelSlice'
 import customerReducer from './slices/customerSlice'
 import bookingReducer from './slices/bookingSlice'
 import uiReducer from './slices/uiSlice'
+import reportsReducer from './slices/reportsSlice'
+import accountsReducer from './slices/accountsSlice'
 
 export const store = configureStore({
   reducer: {
@@ -11,6 +13,8 @@ export const store = configureStore({
     hotel: hotelReducer,
     customers: customerReducer,
     bookings: bookingReducer,
+    reports: reportsReducer,
+    accounts: accountsReducer,
     ui: uiReducer,
   },
 })

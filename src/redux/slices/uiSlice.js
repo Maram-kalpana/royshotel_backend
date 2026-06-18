@@ -8,6 +8,7 @@ const uiSlice = createSlice({
     theme: settingsData.theme || 'light',
     settings: settingsData,
     loading: false,
+    globalSearch: '',
   },
   reducers: {
     toggleSidebar: (state) => {
@@ -25,8 +26,11 @@ const uiSlice = createSlice({
     setLoading: (state, action) => {
       state.loading = action.payload
     },
+    setGlobalSearch: (state, action) => {
+      state.globalSearch = action.payload
+    },
   },
 })
 
-export const { toggleSidebar, setSidebarCollapsed, setTheme, updateSettings, setLoading } = uiSlice.actions
+export const { toggleSidebar, setSidebarCollapsed, setTheme, updateSettings, setLoading, setGlobalSearch } = uiSlice.actions
 export default uiSlice.reducer

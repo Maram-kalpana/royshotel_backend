@@ -1,0 +1,58 @@
+[
+  {
+    "id": "income-1",
+    "date": "2026-06-15",
+    "totalIncome": 125000,
+    "bookedRooms": 42,
+    "vacantRooms": 8,
+    "cashCollection": 45000,
+    "upiCollection": 55000,
+    "cardCollection": 25000,
+    "remarks": "Strong weekend occupancy",
+    "adminName": "Hotel Admin",
+    "adminId": "admin-1",
+    "createdAt": "2026-06-15T21:00:00"
+  },
+  {
+    "id": "income-2",
+    "date": "2026-06-16",
+    "totalIncome": 98000,
+    "bookedRooms": 38,
+    "vacantRooms": 12,
+    "cashCollection": 32000,
+    "upiCollection": 48000,
+    "cardCollection": 18000,
+    "remarks": "Mid-week slowdown",
+    "adminName": "Hotel Admin",
+    "adminId": "admin-1",
+    "createdAt": "2026-06-16T21:30:00"
+  },
+  {
+    "id": "income-3",
+    "date": "2026-06-17",
+    "totalIncome": 142000,
+    "bookedRooms": 45,
+    "vacantRooms": 5,
+    "cashCollection": 52000,
+    "upiCollection": 62000,
+    "cardCollection": 28000,
+    "remarks": "Event nearby boosted bookings",
+    "adminName": "Hotel Admin",
+    "adminId": "admin-1",
+    "createdAt": "2026-06-17T22:00:00"
+  },
+  {
+    "id": "income-4",
+    "date": "2026-06-18",
+    "totalIncome": 118000,
+    "bookedRooms": 40,
+    "vacantRooms": 10,
+    "cashCollection": 40000,
+    "upiCollection": 53000,
+    "cardCollection": 25000,
+    "remarks": "Normal operations",
+    "adminName": "Hotel Admin",
+    "adminId": "admin-1",
+    "createdAt": "2026-06-18T20:45:00"
+  }
+]

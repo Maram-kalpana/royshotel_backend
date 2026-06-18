@@ -1,60 +1,167 @@
 import { useState, useMemo } from 'react'
-import { TextField, MenuItem } from '@mui/material'
-import { Search } from 'lucide-react'
-import Navbar from '../components/Navbar'
+import { TextField, Button, IconButton } from '@mui/material'
+import { Plus, Pencil, Trash2, Eye, Search } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
-import RoomCard from '../components/RoomCard'
-import { useHotel } from '../hooks/useStore'
+import MuiDataGrid from '../components/MuiDataGrid'
+import RightDrawer from '../components/RightDrawer'
+import DrawerFormStack from '../components/DrawerFormStack'
+import DrawerDetailItem from '../components/DrawerDetailItem'
+import StatusBadge from '../components/StatusBadge'
+import { useHotel, useAppDispatch } from '../hooks/useStore'
+import { addRoom, updateRoom, deleteRoom } from '../redux/slices/hotelSlice'
+import { formatCurrency, getRoomCostPerBed, getRoomStatus } from '../utils/helpers'
+import { fieldSx, primaryButtonSx } from '../utils/layout'
+import toast from 'react-hot-toast'
 
-const roomTypes = ['All', 'Single', 'Double', 'Family', 'Dormitory']
-const statuses = ['All', 'available', 'occupied', 'maintenance']
+const emptyForm = { floorNumber: '', roomNumber: '', numberOfBeds: '', costPerBed: '' }
 
 const Rooms = () => {
-  const { rooms, floors } = useHotel()
+  const { rooms, beds } = useHotel()
+  const dispatch = useAppDispatch()
   const [search, setSearch] = useState('')
-  const [floorFilter, setFloorFilter] = useState('All')
-  const [typeFilter, setTypeFilter] = useState('All')
-  const [statusFilter, setStatusFilter] = useState('All')
+  const [formOpen, setFormOpen] = useState(false)
+  const [viewOpen, setViewOpen] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [selectedRoom, setSelectedRoom] = useState(null)
+  const [form, setForm] = useState(emptyForm)
 
-  const filtered = useMemo(() => rooms.filter((room) => {
-    const matchSearch = room.roomNumber.includes(search) || room.roomType.toLowerCase().includes(search.toLowerCase())
-    const matchFloor = floorFilter === 'All' || room.floorId === floorFilter
-    const matchType = typeFilter === 'All' || room.roomType === typeFilter
-    const matchStatus = statusFilter === 'All' || room.status === statusFilter
-    return matchSearch && matchFloor && matchType && matchStatus
-  }), [rooms, search, floorFilter, typeFilter, statusFilter])
+  const tableRows = useMemo(() => rooms.map((room) => ({
+    id: room.id,
+    floorNumber: room.floorNumber,
+    roomNumber: room.roomNumber,
+    numberOfBeds: room.totalBeds,
+    costPerBed: getRoomCostPerBed(room, beds),
+    status: getRoomStatus(room, beds),
+    room,
+  })), [rooms, beds])
+
+  const filteredRows = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    if (!q) return tableRows
+    return tableRows.filter((row) =>
+      String(row.floorNumber).includes(q) ||
+      row.roomNumber.toLowerCase().includes(q),
+    )
+  }, [tableRows, search])
+
+  const openAdd = () => { setEditMode(false); setSelectedRoom(null); setForm(emptyForm); setFormOpen(true) }
+  const openEdit = (row) => {
+    setEditMode(true)
+    setSelectedRoom(row.room)
+    setForm({ floorNumber: row.floorNumber, roomNumber: row.roomNumber, numberOfBeds: row.numberOfBeds, costPerBed: row.costPerBed })
+    setFormOpen(true)
+  }
+  const openView = (row) => { setSelectedRoom(row); setViewOpen(true) }
+  const handleDelete = (row) => { dispatch(deleteRoom(row.id)); toast.success(`Room ${row.roomNumber} deleted`) }
+
+  const handleSave = () => {
+    if (!form.floorNumber || !form.roomNumber || !form.numberOfBeds || !form.costPerBed) {
+      toast.error('Please fill all fields')
+      return
+    }
+    if (editMode && selectedRoom) {
+      dispatch(updateRoom({ id: selectedRoom.id, ...form }))
+      toast.success('Room updated successfully')
+    } else {
+      dispatch(addRoom(form))
+      toast.success('Room added successfully')
+    }
+    setFormOpen(false)
+    setForm(emptyForm)
+  }
+
+  const formFields = [
+    { key: 'floorNumber', label: 'Floor Number', type: 'number' },
+    { key: 'roomNumber', label: 'Room Number', type: 'text' },
+    { key: 'numberOfBeds', label: 'Number Of Beds', type: 'number' },
+    { key: 'costPerBed', label: 'Cost Per Bed', type: 'number' },
+  ]
+
+  const columns = [
+    { field: 'floorNumber', headerName: 'Floor Number', flex: 1, minWidth: 120 },
+    { field: 'roomNumber', headerName: 'Room Number', flex: 1, minWidth: 120 },
+    { field: 'numberOfBeds', headerName: 'No Of Beds', flex: 1, minWidth: 110 },
+    { field: 'costPerBed', headerName: 'Cost Per Bed', flex: 1, minWidth: 130, valueFormatter: (v) => formatCurrency(v) },
+    {
+      field: 'actions', headerName: 'Actions', width: 130, sortable: false, filterable: false,
+      renderCell: (params) => (
+        <div className="flex items-center gap-0.5 h-full">
+          <IconButton size="small" color="info" onClick={() => openView(params.row)} title="View"><Eye size={16} /></IconButton>
+          <IconButton size="small" color="primary" onClick={() => openEdit(params.row)} title="Edit"><Pencil size={16} /></IconButton>
+          <IconButton size="small" color="error" onClick={() => handleDelete(params.row)} title="Delete"><Trash2 size={16} /></IconButton>
+        </div>
+      ),
+    },
+  ]
 
   return (
-    <>
-      <Navbar title="Room Management" />
-      <PageTransition className="page-container">
-        <div className="mb-6">
-          <h2 className="section-title">Rooms</h2>
-          <p className="text-slate-500 mt-1">{filtered.length} rooms found</p>
-        </div>
+    <PageTransition className="page-container">
+      <div className="page-header">
+        <h2 className="section-title">Rooms</h2>
+        <p className="page-subtitle">{filteredRows.length} rooms found</p>
+      </div>
 
-        <div className="flex flex-wrap gap-3 mb-6">
-          <TextField size="small" placeholder="Search rooms..." value={search} onChange={(e) => setSearch(e.target.value)}
-            InputProps={{ startAdornment: <Search size={16} className="mr-2 text-slate-400" /> }} />
-          <TextField select size="small" label="Floor" value={floorFilter} onChange={(e) => setFloorFilter(e.target.value)} sx={{ minWidth: 140 }}>
-            <MenuItem value="All">All Floors</MenuItem>
-            {floors.map((f) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}
-          </TextField>
-          <TextField select size="small" label="Room Type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} sx={{ minWidth: 140 }}>
-            {roomTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-          </TextField>
-          <TextField select size="small" label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={{ minWidth: 140 }}>
-            {statuses.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-          </TextField>
-        </div>
+      <div className="toolbar-row">
+        <TextField
+          placeholder="Search floor or room number..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ ...fieldSx, width: { xs: '100%', sm: 320 } }}
+          InputProps={{ startAdornment: <Search size={16} className="mr-2 text-slate-400 shrink-0" /> }}
+        />
+        <Button variant="contained" startIcon={<Plus size={18} />} onClick={openAdd} sx={primaryButtonSx}>Add Room</Button>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((room) => (
-            <RoomCard key={room.id} room={room} />
+      <MuiDataGrid rows={filteredRows} columns={columns} pageSize={10} />
+
+      <RightDrawer
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={editMode ? 'Edit Room' : 'Add Room'}
+        variant="room"
+        footer={
+          <>
+            <Button onClick={() => setFormOpen(false)} sx={{ height: 44 }}>Cancel</Button>
+            <Button variant="contained" onClick={handleSave} sx={primaryButtonSx}>Save</Button>
+          </>
+        }
+      >
+        <DrawerFormStack>
+          {formFields.map(({ key, label, type }) => (
+            <TextField
+              key={key}
+              fullWidth
+              label={label}
+              type={type}
+              value={form[key]}
+              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+              sx={fieldSx}
+            />
           ))}
-        </div>
-      </PageTransition>
-    </>
+        </DrawerFormStack>
+      </RightDrawer>
+
+      <RightDrawer
+        open={viewOpen}
+        onClose={() => setViewOpen(false)}
+        title="Room Details"
+        variant="room"
+        footer={<Button onClick={() => setViewOpen(false)} sx={{ height: 44 }}>Close</Button>}
+      >
+        {selectedRoom && (
+          <DrawerFormStack>
+            <DrawerDetailItem label="Floor Number" value={selectedRoom.floorNumber} />
+            <DrawerDetailItem label="Room Number" value={selectedRoom.roomNumber} />
+            <DrawerDetailItem label="Total Beds" value={selectedRoom.numberOfBeds} />
+            <DrawerDetailItem label="Cost Per Bed" value={formatCurrency(selectedRoom.costPerBed)} />
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium text-slate-500 mb-2">Occupancy Status</p>
+              <StatusBadge status={selectedRoom.status} />
+            </div>
+          </DrawerFormStack>
+        )}
+      </RightDrawer>
+    </PageTransition>
   )
 }
 

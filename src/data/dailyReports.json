@@ -1,0 +1,38 @@
+[
+  {
+    "id": "report-1",
+    "reportDate": "2026-06-15",
+    "title": "Morning Shift Summary",
+    "description": "All rooms inspected and cleaned before guest arrivals.",
+    "occupancySummary": "185 of 200 beds occupied (92.5%)",
+    "issuesFaced": "AC malfunction in Room 302",
+    "remarks": "Maintenance team notified, temporary fan provided.",
+    "adminName": "Rajesh Kumar",
+    "adminId": "admin-1",
+    "createdAt": "2026-06-15T09:30:00"
+  },
+  {
+    "id": "report-2",
+    "reportDate": "2026-06-16",
+    "title": "Daily Operations Report",
+    "description": "12 check-ins and 8 check-outs processed smoothly.",
+    "occupancySummary": "178 of 200 beds occupied (89%)",
+    "issuesFaced": "Water supply interruption on Floor 3 for 30 minutes",
+    "remarks": "Issue resolved by 10:00 AM. No guest complaints.",
+    "adminName": "Priya Singh",
+    "adminId": "admin-2",
+    "createdAt": "2026-06-16T18:45:00"
+  },
+  {
+    "id": "report-3",
+    "reportDate": "2026-06-17",
+    "title": "Weekend Occupancy Update",
+    "description": "High occupancy due to weekend bookings and events nearby.",
+    "occupancySummary": "192 of 200 beds occupied (96%)",
+    "issuesFaced": "Extra housekeeping staff required on Floor 4",
+    "remarks": "Two additional staff deployed. All rooms serviced on time.",
+    "adminName": "Rajesh Kumar",
+    "adminId": "admin-1",
+    "createdAt": "2026-06-17T20:15:00"
+  }
+]

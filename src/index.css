@@ -53,12 +53,37 @@ body {
 }
 
 .page-container {
-  @apply p-4 md:p-6 lg:p-8;
+  padding: 24px;
+  max-width: 100%;
+}
+
+.page-header {
+  margin-bottom: 20px;
+}
+
+.page-subtitle {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .section-title {
   font-family: var(--font-poppins);
-  @apply text-2xl font-semibold text-slate-900;
+  @apply text-xl font-semibold text-slate-900;
+}
+
+.filter-section .MuiFormControl-root,
+.filter-section .MuiTextField-root {
+  margin: 0;
 }
 
 ::-webkit-scrollbar {

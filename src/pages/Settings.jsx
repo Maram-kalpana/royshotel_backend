@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { TextField, Button, Switch, FormControlLabel, Divider, Typography } from '@mui/material'
 import { Sun, Moon, Save, Building2 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import Navbar from '../components/Navbar'
 import PageTransition from '../components/PageTransition'
 import { useUI, useAppDispatch } from '../hooks/useStore'
 import { updateSettings, setTheme } from '../redux/slices/uiSlice'
@@ -25,9 +24,7 @@ const Settings = () => {
   }
 
   return (
-    <>
-      <Navbar title="Settings" />
-      <PageTransition className="page-container">
+    <PageTransition className="page-container">
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="mb-2">
             <h2 className="section-title">Settings</h2>
@@ -79,7 +76,6 @@ const Settings = () => {
           </motion.div>
         </div>
       </PageTransition>
-    </>
   )
 }
 
