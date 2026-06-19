@@ -32,33 +32,38 @@ const hotelSlice = createSlice({
       recalcStats(state)
     },
     addRoom: (state, action) => {
-      const { floorNumber, roomNumber, numberOfBeds, costPerBed } = action.payload
+      const { floorNumber, roomNumber, numberOfBeds, bedType, costPerBed, costOfBed } = action.payload
       const floor = state.floors.find((f) => f.number === Number(floorNumber))
       const floorId = floor?.id || `floor-${floorNumber}`
       const roomId = `room-${roomNumber}-${Date.now()}`
+      const bedCount = Number(numberOfBeds) || 1
+      const cost = Number(costOfBed ?? costPerBed) || 0
+      const type = bedType || 'Standard'
 
       state.rooms.push({
         id: roomId,
         floorId,
         floorNumber: Number(floorNumber),
         roomNumber: String(roomNumber),
-        roomType: 'Standard',
-        totalBeds: Number(numberOfBeds),
+        roomType: type,
+        bedType: type,
+        totalBeds: bedCount,
         occupiedBeds: 0,
-        vacantBeds: Number(numberOfBeds),
-        costPerBed: Number(costPerBed),
+        vacantBeds: bedCount,
+        costPerBed: cost,
         status: 'available',
       })
 
-      for (let i = 1; i <= Number(numberOfBeds); i += 1) {
+      for (let i = 1; i <= bedCount; i += 1) {
         state.beds.push({
           id: `bed-${roomId}-${i}`,
           bedNumber: i,
+          bedType: type,
           roomId,
           roomNumber: String(roomNumber),
           floorId,
           floorNumber: Number(floorNumber),
-          cost: Number(costPerBed),
+          cost,
           status: 'vacant',
         })
       }
@@ -70,21 +75,25 @@ const hotelSlice = createSlice({
       if (index === -1) return
 
       const prev = state.rooms[index]
-      const { floorNumber, roomNumber, numberOfBeds, costPerBed } = action.payload
+      const { floorNumber, roomNumber, numberOfBeds, bedType, costPerBed, costOfBed } = action.payload
       const floor = state.floors.find((f) => f.number === Number(floorNumber))
       const floorId = floor?.id || prev.floorId
+      const type = bedType || prev.bedType || prev.roomType || 'Standard'
+      const cost = Number(costOfBed ?? costPerBed) || prev.costPerBed || 0
 
       state.rooms[index] = {
         ...prev,
         floorId,
         floorNumber: Number(floorNumber),
         roomNumber: String(roomNumber),
-        totalBeds: Number(numberOfBeds),
-        costPerBed: Number(costPerBed),
+        roomType: type,
+        bedType: type,
+        totalBeds: Number(numberOfBeds) || prev.totalBeds,
+        costPerBed: cost,
       }
 
       const roomBeds = state.beds.filter((b) => b.roomId === prev.id)
-      const newCount = Number(numberOfBeds)
+      const newCount = Number(numberOfBeds) || roomBeds.length
       const currentCount = roomBeds.length
 
       roomBeds.forEach((bed) => {
@@ -95,7 +104,8 @@ const hotelSlice = createSlice({
             floorId,
             floorNumber: Number(floorNumber),
             roomNumber: String(roomNumber),
-            cost: Number(costPerBed),
+            bedType: type,
+            cost,
           }
         }
       })
@@ -105,11 +115,12 @@ const hotelSlice = createSlice({
           state.beds.push({
             id: `bed-${prev.id}-${i}-${Date.now()}`,
             bedNumber: i,
+            bedType: type,
             roomId: prev.id,
             roomNumber: String(roomNumber),
             floorId,
             floorNumber: Number(floorNumber),
-            cost: Number(costPerBed),
+            cost,
             status: 'vacant',
           })
         }

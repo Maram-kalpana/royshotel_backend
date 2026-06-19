@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { TextField, Button, IconButton } from '@mui/material'
+import { TextField, Button, IconButton, MenuItem } from '@mui/material'
 import { Plus, Pencil, Trash2, Eye, Search } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import MuiDataGrid from '../components/MuiDataGrid'
@@ -13,7 +13,14 @@ import { formatCurrency, getRoomCostPerBed, getRoomStatus } from '../utils/helpe
 import { fieldSx, primaryButtonSx } from '../utils/layout'
 import toast from 'react-hot-toast'
 
-const emptyForm = { floorNumber: '', roomNumber: '', numberOfBeds: '', costPerBed: '' }
+const bedTypes = ['Single', 'Double', 'Twin', 'Queen', 'King', 'Bunk', 'Dormitory', 'Family', 'Standard']
+
+const selectMenuProps = {
+  disablePortal: true,
+  PaperProps: { sx: { maxHeight: 280 } },
+}
+
+const emptyForm = { floorNumber: '', roomNumber: '', bedType: '', costOfBed: '' }
 
 const Rooms = () => {
   const { rooms, beds } = useHotel()
@@ -29,8 +36,8 @@ const Rooms = () => {
     id: room.id,
     floorNumber: room.floorNumber,
     roomNumber: room.roomNumber,
-    numberOfBeds: room.totalBeds,
-    costPerBed: getRoomCostPerBed(room, beds),
+    bedType: room.bedType || room.roomType || '—',
+    costOfBed: getRoomCostPerBed(room, beds),
     status: getRoomStatus(room, beds),
     room,
   })), [rooms, beds])
@@ -48,40 +55,45 @@ const Rooms = () => {
   const openEdit = (row) => {
     setEditMode(true)
     setSelectedRoom(row.room)
-    setForm({ floorNumber: row.floorNumber, roomNumber: row.roomNumber, numberOfBeds: row.numberOfBeds, costPerBed: row.costPerBed })
+    setForm({
+      floorNumber: row.floorNumber,
+      roomNumber: row.roomNumber,
+      bedType: row.bedType || row.room?.bedType || row.room?.roomType || '',
+      costOfBed: row.costOfBed,
+    })
     setFormOpen(true)
   }
   const openView = (row) => { setSelectedRoom(row); setViewOpen(true) }
   const handleDelete = (row) => { dispatch(deleteRoom(row.id)); toast.success(`Room ${row.roomNumber} deleted`) }
 
   const handleSave = () => {
-    if (!form.floorNumber || !form.roomNumber || !form.numberOfBeds || !form.costPerBed) {
+    if (!form.floorNumber || !form.roomNumber || !form.bedType || !form.costOfBed) {
       toast.error('Please fill all fields')
       return
     }
+    const payload = {
+      floorNumber: form.floorNumber,
+      roomNumber: form.roomNumber,
+      bedType: form.bedType,
+      costOfBed: form.costOfBed,
+      numberOfBeds: selectedRoom?.totalBeds || 1,
+    }
     if (editMode && selectedRoom) {
-      dispatch(updateRoom({ id: selectedRoom.id, ...form }))
+      dispatch(updateRoom({ id: selectedRoom.id, ...payload }))
       toast.success('Room updated successfully')
     } else {
-      dispatch(addRoom(form))
+      dispatch(addRoom(payload))
       toast.success('Room added successfully')
     }
     setFormOpen(false)
     setForm(emptyForm)
   }
 
-  const formFields = [
-    { key: 'floorNumber', label: 'Floor Number', type: 'number' },
-    { key: 'roomNumber', label: 'Room Number', type: 'text' },
-    { key: 'numberOfBeds', label: 'Number Of Beds', type: 'number' },
-    { key: 'costPerBed', label: 'Cost Per Bed', type: 'number' },
-  ]
-
   const columns = [
     { field: 'floorNumber', headerName: 'Floor Number', flex: 1, minWidth: 120 },
     { field: 'roomNumber', headerName: 'Room Number', flex: 1, minWidth: 120 },
-    { field: 'numberOfBeds', headerName: 'No Of Beds', flex: 1, minWidth: 110 },
-    { field: 'costPerBed', headerName: 'Cost Per Bed', flex: 1, minWidth: 130, valueFormatter: (v) => formatCurrency(v) },
+    { field: 'bedType', headerName: 'Bed Type', flex: 1, minWidth: 110 },
+    { field: 'costOfBed', headerName: 'Cost of Bed', flex: 1, minWidth: 130, valueFormatter: (v) => formatCurrency(v) },
     {
       field: 'actions', headerName: 'Actions', width: 130, sortable: false, filterable: false,
       renderCell: (params) => (
@@ -127,17 +139,40 @@ const Rooms = () => {
         }
       >
         <DrawerFormStack>
-          {formFields.map(({ key, label, type }) => (
-            <TextField
-              key={key}
-              fullWidth
-              label={label}
-              type={type}
-              value={form[key]}
-              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              sx={fieldSx}
-            />
-          ))}
+          <TextField
+            fullWidth
+            label="Floor Number"
+            type="number"
+            value={form.floorNumber}
+            onChange={(e) => setForm({ ...form, floorNumber: e.target.value })}
+            sx={fieldSx}
+          />
+          <TextField
+            fullWidth
+            label="Room Number"
+            value={form.roomNumber}
+            onChange={(e) => setForm({ ...form, roomNumber: e.target.value })}
+            sx={fieldSx}
+          />
+          <TextField
+            select
+            fullWidth
+            label="Bed Type"
+            value={form.bedType}
+            onChange={(e) => setForm({ ...form, bedType: e.target.value })}
+            sx={fieldSx}
+            SelectProps={{ MenuProps: selectMenuProps }}
+          >
+            {bedTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
+          </TextField>
+          <TextField
+            fullWidth
+            label="Cost of Bed"
+            type="number"
+            value={form.costOfBed}
+            onChange={(e) => setForm({ ...form, costOfBed: e.target.value })}
+            sx={fieldSx}
+          />
         </DrawerFormStack>
       </RightDrawer>
 
@@ -152,8 +187,8 @@ const Rooms = () => {
           <DrawerFormStack>
             <DrawerDetailItem label="Floor Number" value={selectedRoom.floorNumber} />
             <DrawerDetailItem label="Room Number" value={selectedRoom.roomNumber} />
-            <DrawerDetailItem label="Total Beds" value={selectedRoom.numberOfBeds} />
-            <DrawerDetailItem label="Cost Per Bed" value={formatCurrency(selectedRoom.costPerBed)} />
+            <DrawerDetailItem label="Bed Type" value={selectedRoom.bedType} />
+            <DrawerDetailItem label="Cost of Bed" value={formatCurrency(selectedRoom.costOfBed)} />
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-xs font-medium text-slate-500 mb-2">Occupancy Status</p>
               <StatusBadge status={selectedRoom.status} />

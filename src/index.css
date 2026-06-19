@@ -20,7 +20,8 @@
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -53,8 +54,26 @@ body {
 }
 
 .page-container {
-  padding: 24px;
+  padding: 16px 20px;
   max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.page-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.page-container::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
+
+.page-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
 }
 
 .page-header {
@@ -86,16 +105,40 @@ body {
   margin: 0;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
-  height: 6px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #94a3b8;
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f5f9;
+}
+
+.horizontal-scrollbar {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.horizontal-scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+
+.horizontal-scrollbar::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
+
+.horizontal-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
 }

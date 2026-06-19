@@ -1,6 +1,6 @@
 import { Drawer, Box, Typography, IconButton, Divider } from '@mui/material'
 import { X } from 'lucide-react'
-import { DRAWER_VARIANTS } from '../utils/layout'
+import { DRAWER_VARIANTS, hideScrollbarSx } from '../utils/layout'
 
 const RightDrawer = ({
   open,
@@ -31,6 +31,7 @@ const RightDrawer = ({
           boxShadow: '-8px 0 32px rgba(15, 23, 42, 0.12)',
         },
       }}
+      sx={{ zIndex: 1300 }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#fff' }}>
         <Box sx={{ px: 3, py: 2, minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -42,7 +43,7 @@ const RightDrawer = ({
           </IconButton>
         </Box>
         <Divider />
-        <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
+        <Box sx={{ flex: 1, overflowY: 'auto', p: 3, ...hideScrollbarSx }}>
           {children}
         </Box>
         {footer && (

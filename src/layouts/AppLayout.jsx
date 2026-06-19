@@ -4,14 +4,14 @@ import { AnimatePresence } from 'framer-motion'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import { useUI } from '../hooks/useStore'
-import { getSidebarOffset } from '../utils/layout'
+import { getSidebarOffset, horizontalScrollbarSx } from '../utils/layout'
 
 const AppLayout = () => {
   const { sidebarCollapsed } = useUI()
   const sidebarOffset = getSidebarOffset(sidebarCollapsed)
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8fafc' }}>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: '#f8fafc' }}>
       <Sidebar />
       <Box
         sx={{
@@ -20,7 +20,8 @@ const AppLayout = () => {
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '100vh',
+          height: '100vh',
+          overflow: 'hidden',
           transition: 'margin-left 0.3s ease',
         }}
       >
@@ -31,6 +32,8 @@ const AppLayout = () => {
             flex: 1,
             overflow: 'auto',
             minHeight: 0,
+            minWidth: 0,
+            ...horizontalScrollbarSx,
           }}
         >
           <AnimatePresence mode="wait">

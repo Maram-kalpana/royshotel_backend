@@ -1,6 +1,6 @@
 export const SIDEBAR_WIDTH = {
-  expanded: 210,
-  collapsed: 68,
+  expanded: 158,
+  collapsed: 56,
 }
 
 export const NAVBAR_HEIGHT = 70
@@ -48,4 +48,26 @@ export const drawerFormStackSx = {
   display: 'flex',
   flexDirection: 'column',
   gap: 2,
+}
+
+export const horizontalScrollbarSx = {
+  overflowX: 'auto',
+  scrollbarWidth: 'thin',
+  scrollbarColor: '#94a3b8 #f1f5f9',
+  '&::-webkit-scrollbar': {
+    height: 8,
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#94a3b8',
+    borderRadius: 999,
+  },
+  '&::-webkit-scrollbar-track': {
+    background: '#f1f5f9',
+  },
+}
+
+export const hideScrollbarSx = {
+  scrollbarWidth: 'none',
+  msOverflowStyle: 'none',
+  '&::-webkit-scrollbar': { display: 'none' },
 }

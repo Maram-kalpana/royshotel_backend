@@ -23,7 +23,7 @@ const Navbar = () => {
         boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
       }}
     >
-      <Toolbar disableGutters sx={{ height: NAVBAR_HEIGHT, minHeight: `${NAVBAR_HEIGHT}px !important`, px: 3, gap: 2 }}>
+      <Toolbar disableGutters sx={{ height: NAVBAR_HEIGHT, minHeight: `${NAVBAR_HEIGHT}px !important`, px: 2, gap: 2 }}>
         <Box
           sx={{
             flex: 1,

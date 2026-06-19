@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Box, IconButton, Select, MenuItem, Typography } from '@mui/material'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { hideScrollbarSx, horizontalScrollbarSx } from '../utils/layout'
 
 const BORDER = '#cbd5e1'
 
-const hideScrollbar = {
-  overflowX: 'auto',
-  scrollbarWidth: 'none',
-  msOverflowStyle: 'none',
-  '&::-webkit-scrollbar': { display: 'none' },
+const getTableMinWidth = (columns) =>
+  columns.reduce((sum, col) => sum + (col.width || col.minWidth || 120), 0)
+
+const getColumnSx = (col) => {
+  const base = {
+    minWidth: col.minWidth || col.width,
+    whiteSpace: col.allowWrap ? 'normal' : 'nowrap',
+  }
+  if (col.width) return { ...base, width: col.width }
+  return base
 }
 
 const getCellValue = (row, col) => {
@@ -39,11 +45,34 @@ const PlainTable = ({
   const pageRows = rows.slice(start, start + rowsPerPage)
 
   const goToPage = (p) => setPage(Math.max(0, Math.min(p, totalPages - 1)))
+  const tableMinWidth = getTableMinWidth(columns)
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <Box sx={{ width: '100%', ...hideScrollbar, border: `1px solid ${BORDER}`, bgcolor: '#fff' }}>
-        <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter, sans-serif' }}>
+    <Box sx={{ width: '100%', minWidth: 0 }}>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          pb: 0.5,
+          ...horizontalScrollbarSx,
+          border: `1px solid ${BORDER}`,
+          bgcolor: '#fff',
+        }}
+      >
+        <Box
+          component="table"
+          sx={{
+            width: '100%',
+            minWidth: tableMinWidth,
+            tableLayout: 'auto',
+            borderCollapse: 'collapse',
+            fontFamily: 'Inter, sans-serif',
+          }}
+        >
           <Box component="thead">
             <Box component="tr" sx={{ bgcolor: '#f8fafc' }}>
               {columns.map((col) => (
@@ -59,9 +88,7 @@ const PlainTable = ({
                     color: '#475569',
                     borderBottom: `1px solid ${BORDER}`,
                     borderRight: `1px solid ${BORDER}`,
-                    whiteSpace: 'nowrap',
-                    minWidth: col.minWidth || col.width,
-                    width: col.width,
+                    ...getColumnSx(col),
                   }}
                 >
                   {col.headerName}
@@ -102,6 +129,7 @@ const PlainTable = ({
                         borderBottom: `1px solid ${BORDER}`,
                         borderRight: `1px solid ${BORDER}`,
                         verticalAlign: 'middle',
+                        ...getColumnSx(col),
                       }}
                     >
                       {col.renderCell

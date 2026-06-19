@@ -1,8 +1,14 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip } from '@mui/material'
+import { horizontalScrollbarSx } from '../utils/layout'
 
 const DataTable = ({ columns, rows, actions, emptyMessage = 'No data found' }) => (
-  <TableContainer component={Paper} elevation={0} className="rounded-2xl! border border-slate-100 overflow-hidden">
-    <Table>
+  <TableContainer
+    component={Paper}
+    elevation={0}
+    className="rounded-2xl! border border-slate-100 horizontal-scrollbar"
+    sx={horizontalScrollbarSx}
+  >
+    <Table sx={{ minWidth: 640 }}>
       <TableHead>
         <TableRow className="bg-slate-50">
           {columns.map((col) => (

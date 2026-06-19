@@ -38,19 +38,19 @@ const Sidebar = () => {
       className="fixed left-0 top-0 z-[1200] flex flex-col"
       style={{ backgroundColor: NAVY, width, height: '100vh' }}
     >
-      <div className="flex items-center gap-2 px-3 py-4 border-b border-white/10 min-h-[70px]">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-white shrink-0">
-          <Crown size={16} />
+      <div className="flex items-center gap-2 px-2.5 py-3 border-b border-white/10 min-h-[60px]">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-white shrink-0">
+          <Crown size={14} />
         </div>
         {!sidebarCollapsed && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-w-0">
-            <p className="text-[10px] text-blue-200 leading-none">Luxury Hotel</p>
-            <p className="font-semibold text-white font-[Poppins] text-xs truncate">Management</p>
+            <p className="text-[9px] text-blue-200 leading-none">Luxury Hotel</p>
+            <p className="font-semibold text-white font-[Poppins] text-[11px] truncate">Management</p>
           </motion.div>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-1.5 py-2 space-y-0.5">
         {getMenuItems(user?.role).map((item) => {
           const Icon = iconMap[item.icon]
           const dashboardPath = user?.role === ROLES.SUPER_ADMIN ? '/super-admin/dashboard' : '/admin/dashboard'
@@ -62,26 +62,26 @@ const Sidebar = () => {
               to={path}
               title={sidebarCollapsed ? item.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all ${
+                `flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-medium transition-all ${
                   isActive ? 'shadow-sm' : 'text-white/80 hover:bg-white/10 hover:text-white'
-                } ${sidebarCollapsed ? 'justify-center px-2' : ''}`
+                } ${sidebarCollapsed ? 'justify-center px-1.5' : ''}`
               }
               style={({ isActive }) => isActive ? { backgroundColor: ACTIVE_BG, color: ACTIVE_TEXT } : undefined}
             >
-              <Icon size={18} className="shrink-0 text-white" />
+              <Icon size={16} className="shrink-0 text-white" />
               {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
             </NavLink>
           )
         })}
       </nav>
 
-      <div className="border-t border-white/10 p-2">
+      <div className="border-t border-white/10 px-1.5 py-2">
         <button
           onClick={handleLogout}
-          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-red-300 hover:bg-red-500/10 transition-colors ${sidebarCollapsed ? 'justify-center px-2' : ''}`}
+          className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-medium text-red-300 hover:bg-red-500/10 transition-colors ${sidebarCollapsed ? 'justify-center px-1.5' : ''}`}
           title={sidebarCollapsed ? 'Logout' : undefined}
         >
-          <LogOut size={18} className="shrink-0" />
+          <LogOut size={16} className="shrink-0" />
           {!sidebarCollapsed && <span>Logout</span>}
         </button>
       </div>
