@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  LayoutDashboard, DoorOpen, Users, CalendarCheck, MapPin, Wallet, Settings, LogOut, ChevronLeft, ChevronRight, Crown,
+  LayoutDashboard, DoorOpen, Users, CalendarCheck, MapPin, Wallet, Settings, LogOut, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useAuth, useUI, useAppDispatch } from '../hooks/useStore'
 import { toggleSidebar } from '../redux/slices/uiSlice'
@@ -9,6 +9,7 @@ import { logout } from '../redux/slices/authSlice'
 import { getMenuItems, ROLES } from '../utils/helpers'
 import { SIDEBAR_WIDTH } from '../utils/layout'
 import toast from 'react-hot-toast'
+import logo from '../assets/logo.png'
 
 const iconMap = {
   LayoutDashboard, DoorOpen, Users, CalendarCheck, MapPin, Wallet, Settings,
@@ -38,16 +39,12 @@ const Sidebar = () => {
       className="fixed left-0 top-0 z-[1200] flex flex-col"
       style={{ backgroundColor: NAVY, width, height: '100vh' }}
     >
-      <div className="flex items-center gap-2 px-2.5 py-3 border-b border-white/10 min-h-[60px]">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-white shrink-0">
-          <Crown size={14} />
-        </div>
-        {!sidebarCollapsed && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-w-0">
-            <p className="text-[9px] text-blue-200 leading-none">Luxury Hotel</p>
-            <p className="font-semibold text-white font-[Poppins] text-[11px] truncate">Management</p>
-          </motion.div>
-        )}
+      <div className={`flex items-center border-b border-white/10 min-h-[72px] ${sidebarCollapsed ? 'justify-center px-2 py-3' : 'px-2.5 py-3'}`}>
+        <img
+          src={logo}
+          alt="Roy's Book My Square Coliving"
+          className={`object-contain ${sidebarCollapsed ? 'w-10 h-10' : 'w-full max-w-[130px] h-auto'}`}
+        />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-1.5 py-2 space-y-0.5">

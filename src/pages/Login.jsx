@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { TextField, Button, Box } from '@mui/material'
-import { Crown, Shield, UserCog, User, Lock, Sparkles } from 'lucide-react'
+import { Shield, UserCog, User, Lock, Sparkles } from 'lucide-react'
 import { useAppDispatch } from '../hooks/useStore'
 import { login } from '../redux/slices/authSlice'
 import { ROLES } from '../utils/helpers'
 import toast from 'react-hot-toast'
 import heroImage from '../assets/hero.png'
+import logo from '../assets/logo.png'
 
 const Login = () => {
   const [username, setUsername] = useState('')
@@ -48,20 +49,24 @@ const Login = () => {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
-          className="relative z-10 flex flex-col justify-end p-14 pb-16 max-w-lg"
+          className="relative z-10 flex flex-col justify-between p-14 py-12 h-full"
         >
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mb-8 shadow-2xl">
-            <Crown size={30} className="text-amber-300" />
-          </div>
-          <h1 className="text-[2.75rem] font-bold font-[Poppins] leading-[1.15] text-white mb-5">
-            Grand Luxe Hotel Management
-          </h1>
-          <p className="text-blue-100/90 text-lg leading-relaxed mb-8">
-            Streamline bookings, manage rooms, track payments, and run daily operations from one professional ERP dashboard.
-          </p>
-          <div className="flex items-center gap-2 text-blue-200/80 text-sm">
-            <Sparkles size={16} className="text-amber-300" />
-            <span>Premium hospitality management platform</span>
+          <img
+            src={logo}
+            alt="Roy's Book My Square Coliving"
+            className="w-full max-w-[280px] h-auto object-contain"
+          />
+          <div className="max-w-lg">
+            <h1 className="text-[2.75rem] font-bold font-[Poppins] leading-[1.15] text-white mb-5">
+              Grand Luxe Hotel Management
+            </h1>
+            <p className="text-blue-100/90 text-lg leading-relaxed mb-8">
+              Streamline bookings, manage rooms, track payments, and run daily operations from one professional ERP dashboard.
+            </p>
+            <div className="flex items-center gap-2 text-blue-200/80 text-sm">
+              <Sparkles size={16} className="text-amber-300" />
+              <span>Premium hospitality management platform</span>
+            </div>
           </div>
         </motion.div>
       </div>
