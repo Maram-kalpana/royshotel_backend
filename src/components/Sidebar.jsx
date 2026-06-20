@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  LayoutDashboard, DoorOpen, Users, CalendarCheck, MapPin, Wallet, Settings, LogOut, ChevronLeft, ChevronRight, Receipt,
+  LayoutDashboard, DoorOpen, Users, CalendarCheck, MapPin, Wallet, Settings, LogOut, ChevronLeft, ChevronRight, Receipt, CreditCard,
 } from 'lucide-react'
 import { useAuth, useUI, useAppDispatch } from '../hooks/useStore'
 import { toggleSidebar } from '../redux/slices/uiSlice'
@@ -12,7 +12,7 @@ import toast from 'react-hot-toast'
 import logo from '../assets/logo.png'
 
 const iconMap = {
-  LayoutDashboard, DoorOpen, Users, CalendarCheck, Receipt, MapPin, Wallet, Settings,
+  LayoutDashboard, DoorOpen, Users, CalendarCheck, Receipt, MapPin, Wallet, Settings, CreditCard,
 }
 
 const NAVY = '#0B1F4D'

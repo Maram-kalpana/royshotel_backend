@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Box, IconButton, Select, MenuItem, Typography } from '@mui/material'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
-import { hideScrollbarSx, horizontalScrollbarSx } from '../utils/layout'
+import { horizontalScrollbarSx } from '../utils/layout'
 
 const BORDER = '#cbd5e1'
 
@@ -30,6 +30,9 @@ const PlainTable = ({
   pageSize = 10,
   getRowId = (row) => row.id,
   emptyMessage = 'No records found',
+  noHorizontalScroll = false,
+  onRowClick,
+  hidePagination = false,
 }) => {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(pageSize)
@@ -45,7 +48,8 @@ const PlainTable = ({
   const pageRows = rows.slice(start, start + rowsPerPage)
 
   const goToPage = (p) => setPage(Math.max(0, Math.min(p, totalPages - 1)))
-  const tableMinWidth = getTableMinWidth(columns)
+  const tableMinWidth = noHorizontalScroll ? '100%' : getTableMinWidth(columns)
+  const showPagination = !hidePagination && totalRows > rowsPerPage
 
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
@@ -54,11 +58,11 @@ const PlainTable = ({
           width: '100%',
           maxWidth: '100%',
           minWidth: 0,
-          overflowX: 'auto',
+          overflowX: noHorizontalScroll ? 'hidden' : 'auto',
           overflowY: 'hidden',
           WebkitOverflowScrolling: 'touch',
           pb: 0.5,
-          ...horizontalScrollbarSx,
+          ...(noHorizontalScroll ? {} : horizontalScrollbarSx),
           border: `1px solid ${BORDER}`,
           bgcolor: '#fff',
         }}
@@ -68,7 +72,7 @@ const PlainTable = ({
           sx={{
             width: '100%',
             minWidth: tableMinWidth,
-            tableLayout: 'auto',
+            tableLayout: noHorizontalScroll ? 'fixed' : 'auto',
             borderCollapse: 'collapse',
             fontFamily: 'Inter, sans-serif',
           }}
@@ -112,8 +116,10 @@ const PlainTable = ({
                 <Box
                   component="tr"
                   key={getRowId(row)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
                   sx={{
                     bgcolor: idx % 2 === 0 ? '#fff' : '#fafbfc',
+                    cursor: onRowClick ? 'pointer' : 'default',
                     '&:hover': { bgcolor: 'rgba(11, 31, 77, 0.04)' },
                   }}
                 >
@@ -144,6 +150,7 @@ const PlainTable = ({
         </Box>
       </Box>
 
+      {showPagination && (
       <Box
         sx={{
           display: 'flex',
@@ -192,6 +199,7 @@ const PlainTable = ({
           </IconButton>
         </Box>
       </Box>
+      )}
     </Box>
   )
 }

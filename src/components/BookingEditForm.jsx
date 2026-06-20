@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
+import { TextField, MenuItem, Typography, Box } from '@mui/material'
 import DatePickerField from './DatePickerField'
 import DateTimeSplitField, { splitDateTime } from './DateTimeSplitField'
 import { formatCurrency } from '../utils/helpers'
-import { fieldSx, primaryButtonSx, drawerFormStackSx } from '../utils/layout'
+import { fieldSx, drawerFormStackSx } from '../utils/layout'
 
 const paymentTypes = ['Cash', 'UPI', 'Card', 'Bank Transfer']
 const rowSx = { display: 'flex', gap: 1.5, width: '100%', flexWrap: { xs: 'wrap', sm: 'nowrap' } }
@@ -24,8 +24,6 @@ const BookingEditForm = ({
   beds,
   form,
   onChange,
-  onSave,
-  onCancel,
 }) => {
   const vacantBedsList = useMemo(() => beds.filter((b) => b.status === 'vacant'), [beds])
 
@@ -185,10 +183,6 @@ const BookingEditForm = ({
         </TextField>
       </Section>
 
-      <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>
-        <Button variant="outlined" onClick={onCancel} sx={{ height: 44 }}>Cancel</Button>
-        <Button variant="contained" onClick={onSave} sx={primaryButtonSx}>Save Changes</Button>
-      </Box>
     </Box>
   )
 }

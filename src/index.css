@@ -58,22 +58,7 @@ body {
   max-width: 100%;
   min-width: 0;
   width: 100%;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #94a3b8 #f1f5f9;
-}
-
-.page-container::-webkit-scrollbar {
-  height: 8px;
-}
-
-.page-container::-webkit-scrollbar-thumb {
-  background: #94a3b8;
-  border-radius: 999px;
-}
-
-.page-container::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  overflow-x: hidden;
 }
 
 .page-header {

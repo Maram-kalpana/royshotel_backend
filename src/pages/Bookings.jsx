@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Button, IconButton, TextField, MenuItem, Dialog, DialogTitle, DialogContent, Divider, Typography, Box } from '@mui/material'
-import { Plus, Eye, Pencil, Trash2, X } from 'lucide-react'
+import { Button, IconButton, TextField, MenuItem, Box } from '@mui/material'
+import { Plus, Eye, Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '../components/PageTransition'
 import MuiDataGrid from '../components/MuiDataGrid'
@@ -341,11 +341,29 @@ const BookingsContent = () => {
   }
 
   const columns = [
-    { field: 'customerName', headerName: 'Customer Name', minWidth: 140 },
-    { field: 'phone', headerName: 'Phone', minWidth: 130 },
-    { field: 'floorNumber', headerName: 'Floor', width: 70 },
-    { field: 'roomNumber', headerName: 'Room', width: 70 },
-    { field: 'bedNumber', headerName: 'Bed', width: 60 },
+    {
+      field: 'customerInfo',
+      headerName: 'Customer',
+      minWidth: 140,
+      allowWrap: true,
+      renderCell: ({ row }) => (
+        <Box sx={{ lineHeight: 1.35, py: 0.25 }}>
+          <Box sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#334155' }}>{row.customerName}</Box>
+          <Box sx={{ fontSize: '0.75rem', color: '#64748b', mt: 0.25 }}>{row.phone}</Box>
+        </Box>
+      ),
+    },
+    {
+      field: 'location',
+      headerName: 'Floor / Room / Bed',
+      width: 120,
+      allowWrap: true,
+      renderCell: ({ row }) => (
+        <Box sx={{ fontSize: '0.8125rem', color: '#334155', lineHeight: 1.35 }}>
+          F{row.floorNumber} · R{row.roomNumber} · B{row.bedNumber}
+        </Box>
+      ),
+    },
     {
       field: 'checkInDateTime',
       headerName: 'Checked In',
@@ -362,20 +380,30 @@ const BookingsContent = () => {
     },
     { field: 'stayDuration', headerName: 'Stay', width: 95 },
     { field: 'totalAmount', headerName: 'Amount', width: 100, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'advancePaid', headerName: 'Advance', width: 100, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'balanceAmount', headerName: 'Balance', width: 100, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'paymentType', headerName: 'Payment Type', width: 120 },
+    {
+      field: 'paymentDetails',
+      headerName: 'Advance / Balance / Type',
+      minWidth: 150,
+      allowWrap: true,
+      renderCell: ({ row }) => (
+        <Box sx={{ lineHeight: 1.35, py: 0.25 }}>
+          <Box sx={{ fontSize: '0.8125rem', color: '#334155' }}>Adv: {formatCurrency(row.advancePaid)}</Box>
+          <Box sx={{ fontSize: '0.8125rem', color: '#334155' }}>Bal: {formatCurrency(row.balanceAmount)}</Box>
+          <Box sx={{ fontSize: '0.75rem', color: '#64748b', mt: 0.25 }}>{row.paymentType}</Box>
+        </Box>
+      ),
+    },
     {
       field: 'paymentStatus',
       headerName: 'Payment Status',
-      width: 140,
+      width: 130,
       allowWrap: true,
       renderCell: ({ row }) => <PaymentStatusBadge status={row.paymentStatus} balanceAmount={row.balanceAmount} />,
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 130,
+      width: 120,
       renderCell: ({ row }) => (
         <div className="flex items-center gap-0.5">
           <IconButton size="small" color="primary" onClick={() => setViewBooking(row.booking)} title="View"><Eye size={16} /></IconButton>
@@ -407,7 +435,7 @@ const BookingsContent = () => {
         </Button>
       </div>
 
-      <MuiDataGrid rows={tableRows} columns={columns} pageSize={10} />
+      <MuiDataGrid rows={tableRows} columns={columns} pageSize={10} noHorizontalScroll />
 
       <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add Booking" variant="booking">
         <BookingForm floors={floors} rooms={rooms} beds={beds} onSubmit={handleSubmit} onCancel={() => setDrawerOpen(false)} />
@@ -430,35 +458,34 @@ const BookingsContent = () => {
         )}
       </RightDrawer>
 
-      <Dialog open={!!editBooking} onClose={() => { setEditBooking(null); setEditForm(emptyEditForm) }} fullScreen>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 2, px: 3 }}>
-          <Box>
-            <Typography variant="h6" sx={{ fontFamily: 'Poppins', fontWeight: 600 }}>Edit Booking</Typography>
-            <Typography variant="body2" color="text.secondary">{editBooking?.customerName}</Typography>
-          </Box>
-          <IconButton onClick={() => { setEditBooking(null); setEditForm(emptyEditForm) }} aria-label="Close">
-            <X size={20} />
-          </IconButton>
-        </DialogTitle>
-        <Divider />
-        <DialogContent sx={{ p: 3, bgcolor: '#f8fafc' }}>
-          {editBooking && (
-            <Box sx={{ maxWidth: 900, mx: 'auto' }}>
-              <BookingEditForm
-                booking={editBooking}
-                customer={customers.find((c) => c.id === editBooking.customerId)}
-                floors={floors}
-                rooms={rooms}
-                beds={beds}
-                form={editForm}
-                onChange={updateEditForm}
-                onSave={handleEditSave}
-                onCancel={() => { setEditBooking(null); setEditForm(emptyEditForm) }}
-              />
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
+      <RightDrawer
+        open={!!editBooking}
+        onClose={() => { setEditBooking(null); setEditForm(emptyEditForm) }}
+        title={`Edit Booking — ${editBooking?.customerName || ''}`}
+        variant="booking"
+        footer={
+          <>
+            <Button onClick={() => { setEditBooking(null); setEditForm(emptyEditForm) }} sx={{ height: 44 }}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleEditSave} sx={primaryButtonSx}>
+              Save Changes
+            </Button>
+          </>
+        }
+      >
+        {editBooking && (
+          <BookingEditForm
+            booking={editBooking}
+            customer={customers.find((c) => c.id === editBooking.customerId)}
+            floors={floors}
+            rooms={rooms}
+            beds={beds}
+            form={editForm}
+            onChange={updateEditForm}
+          />
+        )}
+      </RightDrawer>
     </>
   )
 }

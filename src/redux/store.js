@@ -7,6 +7,7 @@ import monthlyPaymentsReducer from './slices/monthlyPaymentsSlice'
 import uiReducer from './slices/uiSlice'
 import reportsReducer from './slices/reportsSlice'
 import accountsReducer from './slices/accountsSlice'
+import expensesReducer from './slices/expensesSlice'
 import { loadPersistedState } from '../utils/persistStore'
 
 const persisted = loadPersistedState()
@@ -20,6 +21,7 @@ export const store = configureStore({
     monthlyPayments: monthlyPaymentsReducer,
     reports: reportsReducer,
     accounts: accountsReducer,
+    expenses: expensesReducer,
     ui: uiReducer,
   },
   preloadedState: persisted
@@ -28,6 +30,7 @@ export const store = configureStore({
         customers: persisted.customers,
         bookings: persisted.bookings,
         monthlyPayments: persisted.monthlyPayments,
+        expenses: Array.isArray(persisted.expenses?.list) ? persisted.expenses : undefined,
       }
     : undefined,
 })

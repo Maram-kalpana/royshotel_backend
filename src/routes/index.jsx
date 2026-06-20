@@ -12,6 +12,7 @@ import Bookings from '../pages/Bookings'
 import MonthlyPayments from '../pages/MonthlyPayments'
 import Vacancy from '../pages/Vacancy'
 import Accounts from '../pages/Accounts'
+import Expenses from '../pages/Expenses'
 import CustomerProfile from '../pages/CustomerProfile'
 import Checkout from '../pages/Checkout'
 import Settings from '../pages/Settings'
@@ -35,7 +36,10 @@ const AppRoutes = () => (
       <Route path="/bookings" element={<Bookings />} />
       <Route path="/monthly-payments" element={<MonthlyPayments />} />
       <Route path="/vacancy" element={<Vacancy />} />
-      <Route path="/accounts" element={<Accounts />} />
+      <Route path="/accounts" element={
+        <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><Accounts /></ProtectedRoute>
+      } />
+      <Route path="/expenses" element={<Expenses />} />
       <Route path="/checkout/:id" element={<Checkout />} />
       <Route path="/settings" element={<Settings />} />
 

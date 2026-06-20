@@ -68,19 +68,25 @@ export const displayValue = (value, fallback = '—') => {
   return value
 }
 
-const BASE_MENU = [
+const COMMON_MENU = [
   { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard' },
   { label: 'Rooms', path: '/rooms', icon: 'DoorOpen' },
   { label: 'Customers', path: '/customers', icon: 'Users' },
   { label: 'Bookings', path: '/bookings', icon: 'CalendarCheck' },
   { label: 'Monthly Payments', path: '/monthly-payments', icon: 'Receipt' },
   { label: 'Vacancy', path: '/vacancy', icon: 'MapPin' },
-  { label: 'Accounts', path: '/accounts', icon: 'Wallet' },
+  { label: 'Expenses', path: '/expenses', icon: 'Wallet' },
   { label: 'Settings', path: '/settings', icon: 'Settings' },
 ]
 
-export const SUPER_ADMIN_MENU_ITEMS = BASE_MENU
-export const ADMIN_MENU_ITEMS = BASE_MENU
+export const SUPER_ADMIN_MENU_ITEMS = [
+  ...COMMON_MENU.slice(0, 6),
+  { label: 'Accounts', path: '/accounts', icon: 'CreditCard' },
+  { label: 'Expenses', path: '/expenses', icon: 'Wallet' },
+  { label: 'Settings', path: '/settings', icon: 'Settings' },
+]
+
+export const ADMIN_MENU_ITEMS = COMMON_MENU
 
 export const getMenuItems = (role) =>
   role === ROLES.SUPER_ADMIN ? SUPER_ADMIN_MENU_ITEMS : ADMIN_MENU_ITEMS
@@ -94,6 +100,7 @@ const ROUTE_TITLES = {
   '/monthly-payments': 'Monthly Payments',
   '/vacancy': 'Vacancy',
   '/accounts': 'Accounts',
+  '/expenses': 'Expenses',
   '/settings': 'Settings',
 }
 

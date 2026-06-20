@@ -55,12 +55,12 @@ const Login = () => {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
-          className="relative z-10 flex flex-col justify-between p-14 py-12 h-full"
+          className="relative z-10 flex flex-col p-14 py-12 h-full"
         >
           <img
             src={logo}
             alt="Roy's Book My Square Coliving"
-            className="w-full max-w-[280px] h-auto object-contain"
+            className="w-full max-w-[280px] h-auto object-contain mb-8"
           />
           <div className="max-w-lg">
             <h1 className="text-[2.75rem] font-bold font-[Poppins] leading-[1.15] text-white mb-5">

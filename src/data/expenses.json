@@ -1,0 +1,47 @@
+[
+  {
+    "id": "exp-1",
+    "type": "maintenance",
+    "date": "2026-06-15",
+    "amount": 5000,
+    "description": "Room maintenance repair",
+    "createdBy": "admin-1",
+    "createdAt": "2026-06-15T10:30:00"
+  },
+  {
+    "id": "exp-2",
+    "type": "utilities",
+    "date": "2026-06-14",
+    "amount": 8000,
+    "description": "Electricity bill",
+    "createdBy": "admin-1",
+    "createdAt": "2026-06-14T15:45:00"
+  },
+  {
+    "id": "exp-3",
+    "type": "supplies",
+    "date": "2026-06-13",
+    "amount": 3500,
+    "description": "Cleaning supplies",
+    "createdBy": "admin-1",
+    "createdAt": "2026-06-13T09:20:00"
+  },
+  {
+    "id": "exp-4",
+    "type": "staff",
+    "date": "2026-06-12",
+    "amount": 15000,
+    "description": "Staff salary advance",
+    "createdBy": "admin-1",
+    "createdAt": "2026-06-12T14:00:00"
+  },
+  {
+    "id": "exp-5",
+    "type": "miscellaneous",
+    "date": "2026-06-10",
+    "amount": 2000,
+    "description": "Office supplies",
+    "createdBy": "admin-1",
+    "createdAt": "2026-06-10T11:15:00"
+  }
+]

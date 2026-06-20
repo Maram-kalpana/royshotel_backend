@@ -17,6 +17,7 @@ export const savePersistedState = (state) => {
       customers: state.customers,
       bookings: state.bookings,
       monthlyPayments: state.monthlyPayments,
+      expenses: state.expenses,
     }))
   } catch {
     // ignore quota errors

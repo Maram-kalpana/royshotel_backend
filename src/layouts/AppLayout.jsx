@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import { useUI } from '../hooks/useStore'
-import { getSidebarOffset, horizontalScrollbarSx } from '../utils/layout'
+import { getSidebarOffset, hideScrollbarSx } from '../utils/layout'
 
 const AppLayout = () => {
   const { sidebarCollapsed } = useUI()
@@ -33,7 +33,7 @@ const AppLayout = () => {
             overflow: 'auto',
             minHeight: 0,
             minWidth: 0,
-            ...horizontalScrollbarSx,
+            ...hideScrollbarSx,
           }}
         >
           <AnimatePresence mode="wait">

@@ -8,4 +8,5 @@ export const useMonthlyPayments = () => useSelector((state) => state.monthlyPaym
 export const useUI = () => useSelector((state) => state.ui)
 export const useReports = () => useSelector((state) => state.reports)
 export const useAccounts = () => useSelector((state) => state.accounts)
+export const useExpenses = () => useSelector((state) => state.expenses)
 export const useAppDispatch = () => useDispatch()

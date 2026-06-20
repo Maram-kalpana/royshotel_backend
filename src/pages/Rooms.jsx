@@ -11,13 +11,6 @@ import { formatCurrency, getRoomCostPerBed, displayValue } from '../utils/helper
 import { fieldSx, primaryButtonSx } from '../utils/layout'
 import toast from 'react-hot-toast'
 
-const bedTypes = ['Single', 'Double', 'Twin', 'Queen', 'King', 'Bunk', 'Dormitory', 'Family', 'Standard']
-
-const selectMenuProps = {
-  disablePortal: true,
-  PaperProps: { sx: { maxHeight: 280 } },
-}
-
 const emptyForm = { floorNumber: '', roomNumber: '', bedType: '', acType: 'Non A/C', costOfBed: '' }
 const acTypes = ['A/C', 'Non A/C']
 
@@ -96,10 +89,10 @@ const Rooms = () => {
     { field: 'costOfBed', headerName: 'Cost of Bed', flex: 1, minWidth: 130, valueFormatter: (v) => formatCurrency(v) },
     {
       field: 'actions', headerName: 'Actions', width: 100, sortable: false, filterable: false,
-      renderCell: (params) => (
+      renderCell: ({ row }) => (
         <div className="flex items-center gap-0.5 h-full">
-          <IconButton size="small" color="primary" onClick={() => openEdit(params.row)} title="Edit"><Pencil size={16} /></IconButton>
-          <IconButton size="small" color="error" onClick={() => handleDelete(params.row)} title="Delete"><Trash2 size={16} /></IconButton>
+          <IconButton size="small" color="primary" onClick={() => openEdit(row)} title="Edit"><Pencil size={16} /></IconButton>
+          <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={16} /></IconButton>
         </div>
       ),
     },
@@ -149,16 +142,13 @@ const Rooms = () => {
             sx={fieldSx}
           />
           <TextField
-            select
             fullWidth
             label="Bed Type"
             value={form.bedType}
             onChange={(e) => setForm({ ...form, bedType: e.target.value })}
+            placeholder="e.g. Single, Double..."
             sx={fieldSx}
-            SelectProps={{ MenuProps: selectMenuProps }}
-          >
-            {bedTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
-          </TextField>
+          />
           <TextField
             select
             fullWidth
@@ -166,7 +156,6 @@ const Rooms = () => {
             value={form.acType}
             onChange={(e) => setForm({ ...form, acType: e.target.value })}
             sx={fieldSx}
-            SelectProps={{ MenuProps: selectMenuProps }}
           >
             {acTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
           </TextField>
