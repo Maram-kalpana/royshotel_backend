@@ -5,7 +5,9 @@ import { TextField, Button, Box } from '@mui/material'
 import { Shield, UserCog, User, Lock, Sparkles } from 'lucide-react'
 import { useAppDispatch } from '../hooks/useStore'
 import { login } from '../redux/slices/authSlice'
-import { ROLES, LOGIN_CREDENTIALS } from '../utils/helpers'
+import { authApi } from '../services/endpoints'
+import { loadAllData } from '../services/dataService'
+import { ROLES } from '../utils/helpers'
 import toast from 'react-hot-toast'
 import heroImage from '../assets/hero.png'
 import logo from '../assets/logo.png'
@@ -17,27 +19,23 @@ const Login = () => {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     if (!username.trim() || !password.trim()) {
       toast.error('Please enter username and password')
       return
     }
 
-    const creds = LOGIN_CREDENTIALS[role]
-    if (username.trim() !== creds.username || password !== creds.password) {
-      toast.error('Invalid username or password')
-      return
+    try {
+      const { token, user } = await authApi.login(username.trim(), password)
+      localStorage.setItem('hotel_token', token)
+      dispatch(login(user))
+      await loadAllData(dispatch)
+      toast.success(`Welcome, ${user.name}!`)
+      navigate(user.role === ROLES.SUPER_ADMIN ? '/super-admin/dashboard' : '/admin/dashboard')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Invalid username or password')
     }
-
-    dispatch(login({
-      id: creds.id,
-      name: creds.name,
-      email: creds.username,
-      role,
-    }))
-    toast.success(`Welcome, ${creds.name}!`)
-    navigate(role === ROLES.SUPER_ADMIN ? '/super-admin/dashboard' : '/admin/dashboard')
   }
 
   const roles = [

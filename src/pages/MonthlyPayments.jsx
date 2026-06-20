@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Tabs, Tab, Box, Button, IconButton } from '@mui/material'
+import { useState, useMemo, useEffect } from 'react'
+import { Tabs, Tab, Button, IconButton } from '@mui/material'
 import { Plus, History, CheckCircle, Pencil, Eye, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '../components/PageTransition'
@@ -17,6 +17,7 @@ import { addBooking, updateBooking, deleteBooking } from '../redux/slices/bookin
 import { updateBed } from '../redux/slices/hotelSlice'
 import { formatCurrency, displayValue } from '../utils/helpers'
 import { primaryButtonSx } from '../utils/layout'
+import { loadMonthlyPayments } from '../services/dataService'
 import {
   getDueDateLabel,
   getCurrentMonthYear,
@@ -42,6 +43,10 @@ const MonthlyPayments = () => {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editTenant, setEditTenant] = useState(null)
   const [viewTenant, setViewTenant] = useState(null)
+
+  useEffect(() => {
+    loadMonthlyPayments(dispatch).catch(console.error)
+  }, [dispatch])
 
   const currentMonth = getCurrentMonthYear()
 
@@ -294,18 +299,7 @@ const MonthlyPayments = () => {
 
   return (
     <PageTransition className="page-container">
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 2,
-          flexWrap: 'wrap',
-          mb: 2,
-          borderBottom: 1,
-          borderColor: 'divider',
-        }}
-      >
+      <div className="toolbar-row" style={{ marginBottom: 12, borderBottom: 'none' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ minHeight: 48 }}>
           <Tab label="All Tenants" sx={{ minHeight: 48, py: 1.5 }} />
           <Tab label="Paid" sx={{ minHeight: 48, py: 1.5 }} />
@@ -314,7 +308,7 @@ const MonthlyPayments = () => {
         <Button variant="contained" startIcon={<Plus size={18} />} onClick={openAdd} sx={{ ...primaryButtonSx, flexShrink: 0 }}>
           Add Tenant
         </Button>
-      </Box>
+      </div>
 
       <MuiDataGrid rows={filteredRows} columns={columns} pageSize={10} />
 

@@ -1,14 +1,18 @@
 import { createSlice } from '@reduxjs/toolkit'
-import { customers as customersData } from '../../data'
 
 const customerSlice = createSlice({
   name: 'customers',
   initialState: {
-    list: customersData.filter((c) => c.status !== 'checked-out'),
-    history: customersData.filter((c) => c.status === 'checked-out'),
+    list: [],
+    history: [],
     selectedCustomer: null,
   },
   reducers: {
+    setCustomersList: (state, action) => {
+      const all = action.payload || []
+      state.list = all.filter((c) => c.status !== 'checked-out')
+      state.history = all.filter((c) => c.status === 'checked-out')
+    },
     addCustomer: (state, action) => {
       state.list.unshift(action.payload)
     },
@@ -34,5 +38,5 @@ const customerSlice = createSlice({
   },
 })
 
-export const { addCustomer, updateCustomer, setSelectedCustomer, checkoutCustomer } = customerSlice.actions
+export const { setCustomersList, addCustomer, updateCustomer, setSelectedCustomer, checkoutCustomer } = customerSlice.actions
 export default customerSlice.reducer

@@ -8,9 +8,6 @@ import uiReducer from './slices/uiSlice'
 import reportsReducer from './slices/reportsSlice'
 import accountsReducer from './slices/accountsSlice'
 import expensesReducer from './slices/expensesSlice'
-import { loadPersistedState } from '../utils/persistStore'
-
-const persisted = loadPersistedState()
 
 export const store = configureStore({
   reducer: {
@@ -24,15 +21,6 @@ export const store = configureStore({
     expenses: expensesReducer,
     ui: uiReducer,
   },
-  preloadedState: persisted
-    ? {
-        hotel: persisted.hotel,
-        customers: persisted.customers,
-        bookings: persisted.bookings,
-        monthlyPayments: persisted.monthlyPayments,
-        expenses: Array.isArray(persisted.expenses?.list) ? persisted.expenses : undefined,
-      }
-    : undefined,
 })
 
 export default store

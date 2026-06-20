@@ -1,5 +1,18 @@
 import { createSlice } from '@reduxjs/toolkit'
-import { floors as floorsData, rooms as roomsData, beds as bedsData, stats as statsData } from '../../data'
+
+const emptyStats = {
+  totalFloors: 0,
+  totalRooms: 0,
+  totalBeds: 0,
+  occupiedBeds: 0,
+  vacantBeds: 0,
+  reservedBeds: 0,
+  totalCustomers: 0,
+  revenue: 0,
+  pendingPayments: 0,
+  todayCheckIns: 0,
+  todayCheckOuts: 0,
+}
 
 const recalcStats = (state) => {
   state.stats.totalFloors = state.floors.length
@@ -10,21 +23,22 @@ const recalcStats = (state) => {
   state.stats.reservedBeds = state.beds.filter((b) => b.status === 'reserved').length
 }
 
-const buildInitialHotelState = () => {
-  const state = {
-    floors: floorsData,
-    rooms: roomsData,
-    beds: bedsData,
-    stats: { ...statsData },
-  }
-  recalcStats(state)
-  return state
-}
-
 const hotelSlice = createSlice({
   name: 'hotel',
-  initialState: buildInitialHotelState(),
+  initialState: {
+    floors: [],
+    rooms: [],
+    beds: [],
+    stats: { ...emptyStats },
+  },
   reducers: {
+    setHotelData: (state, action) => {
+      const { floors, rooms, beds } = action.payload
+      if (floors) state.floors = floors
+      if (rooms) state.rooms = rooms
+      if (beds) state.beds = beds
+      recalcStats(state)
+    },
     addFloor: (state, action) => {
       state.floors.push(action.payload)
       recalcStats(state)
@@ -165,6 +179,7 @@ const hotelSlice = createSlice({
 })
 
 export const {
+  setHotelData,
   addFloor, updateFloor, deleteFloor, addRoom, updateRoom, deleteRoom, updateBed, recalculateStats,
 } = hotelSlice.actions
 export default hotelSlice.reducer

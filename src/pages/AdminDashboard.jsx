@@ -8,16 +8,17 @@ import { StatCardSkeleton } from '../components/LoadingSkeleton'
 import { useHotel, useBookings, useMonthlyPayments } from '../hooks/useStore'
 import { formatCurrency, computeHotelStats } from '../utils/helpers'
 import { computeMonthlyPaymentStats } from '../utils/monthlyPaymentHelpers'
+import { dashboardApi } from '../services/endpoints'
 import { motion } from 'framer-motion'
 
-const weeklyData = [
-  { day: 'Mon', checkins: 5, checkouts: 3 },
-  { day: 'Tue', checkins: 8, checkouts: 4 },
-  { day: 'Wed', checkins: 6, checkouts: 7 },
-  { day: 'Thu', checkins: 9, checkouts: 5 },
-  { day: 'Fri', checkins: 12, checkouts: 8 },
-  { day: 'Sat', checkins: 15, checkouts: 10 },
-  { day: 'Sun', checkins: 10, checkouts: 6 },
+const fallbackWeeklyData = [
+  { day: 'Mon', checkins: 0, checkouts: 0 },
+  { day: 'Tue', checkins: 0, checkouts: 0 },
+  { day: 'Wed', checkins: 0, checkouts: 0 },
+  { day: 'Thu', checkins: 0, checkouts: 0 },
+  { day: 'Fri', checkins: 0, checkouts: 0 },
+  { day: 'Sat', checkins: 0, checkouts: 0 },
+  { day: 'Sun', checkins: 0, checkouts: 0 },
 ]
 
 const AdminDashboard = () => {
@@ -25,10 +26,15 @@ const AdminDashboard = () => {
   const { list: bookings } = useBookings()
   const { tenants } = useMonthlyPayments()
   const [loading, setLoading] = useState(true)
+  const [weeklyData, setWeeklyData] = useState(fallbackWeeklyData)
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 600)
-    return () => clearTimeout(timer)
+    dashboardApi.stats()
+      .then((stats) => {
+        if (stats?.weeklyActivity?.length) setWeeklyData(stats.weeklyActivity)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [])
 
   const stats = computeHotelStats(hotel, { list: [] }, { list: bookings })

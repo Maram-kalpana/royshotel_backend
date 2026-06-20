@@ -1,35 +1,64 @@
-import { useState, useMemo } from 'react'
-import { TextField, Button, IconButton, MenuItem } from '@mui/material'
-import { Plus, Pencil, Trash2, Search } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { TextField, Button, IconButton, MenuItem, Typography, Box, Divider } from '@mui/material'
+import { Plus, Pencil, Trash2, Search, Eye, X } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
 import MuiDataGrid from '../components/MuiDataGrid'
 import RightDrawer from '../components/RightDrawer'
 import DrawerFormStack from '../components/DrawerFormStack'
 import { useHotel, useAppDispatch } from '../hooks/useStore'
-import { addRoom, updateRoom, deleteRoom } from '../redux/slices/hotelSlice'
-import { formatCurrency, getRoomCostPerBed, displayValue } from '../utils/helpers'
+import { loadRooms } from '../services/dataService'
+import { roomsApi } from '../services/endpoints'
+import { formatCurrency, displayValue } from '../utils/helpers'
 import { fieldSx, primaryButtonSx } from '../utils/layout'
 import toast from 'react-hot-toast'
 
-const emptyForm = { floorNumber: '', roomNumber: '', bedType: '', acType: 'Non A/C', costOfBed: '' }
 const acTypes = ['A/C', 'Non A/C']
+const bedTypes = ['Single', 'Double', 'Triple', 'Four Sharing']
+const bedStatuses = ['vacant', 'occupied', 'reserved']
+
+const createEmptyBed = (bedNumber) => ({
+  id: null,
+  bedNumber,
+  bedType: 'Single',
+  cost: '',
+  status: 'vacant',
+})
+
+const emptyForm = {
+  floorNumber: '',
+  roomNumber: '',
+  acType: 'Non A/C',
+  beds: [createEmptyBed(1)],
+}
+
+const capitalizeStatus = (status) => {
+  if (!status) return '—'
+  return status.charAt(0).toUpperCase() + status.slice(1)
+}
 
 const Rooms = () => {
   const { rooms, beds } = useHotel()
   const dispatch = useAppDispatch()
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
+  const [viewOpen, setViewOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
+  const [viewRoom, setViewRoom] = useState(null)
   const [form, setForm] = useState(emptyForm)
+
+  useEffect(() => {
+    loadRooms(dispatch).catch(console.error)
+  }, [dispatch])
 
   const tableRows = useMemo(() => rooms.map((room) => ({
     id: room.id,
     floorNumber: room.floorNumber,
     roomNumber: room.roomNumber,
-    bedType: displayValue(room.bedType || room.roomType),
     acType: displayValue(room.acType, 'Non A/C'),
-    costOfBed: getRoomCostPerBed(room, beds),
+    totalBeds: room.totalBeds ?? beds.filter((b) => b.roomId === room.id).length,
+    occupiedBeds: room.occupiedBeds ?? beds.filter((b) => b.roomId === room.id && b.status === 'occupied').length,
+    vacantBeds: room.vacantBeds ?? beds.filter((b) => b.roomId === room.id && b.status === 'vacant').length,
     room,
   })), [rooms, beds])
 
@@ -42,56 +71,152 @@ const Rooms = () => {
     )
   }, [tableRows, search])
 
-  const openAdd = () => { setEditMode(false); setSelectedRoom(null); setForm(emptyForm); setFormOpen(true) }
+  const viewBeds = useMemo(() => {
+    if (!viewRoom) return []
+    return beds
+      .filter((b) => b.roomId === viewRoom.id)
+      .sort((a, b) => a.bedNumber - b.bedNumber)
+  }, [viewRoom, beds])
+
+  const openAdd = () => {
+    setEditMode(false)
+    setSelectedRoom(null)
+    setForm(emptyForm)
+    setFormOpen(true)
+  }
+
   const openEdit = (row) => {
+    const roomBeds = beds
+      .filter((b) => b.roomId === row.room.id)
+      .sort((a, b) => a.bedNumber - b.bedNumber)
+
     setEditMode(true)
     setSelectedRoom(row.room)
     setForm({
       floorNumber: row.floorNumber,
       roomNumber: row.roomNumber,
-      bedType: row.bedType !== '—' ? row.bedType : row.room?.bedType || row.room?.roomType || '',
       acType: row.acType !== '—' ? row.acType : row.room?.acType || 'Non A/C',
-      costOfBed: row.costOfBed,
+      beds: roomBeds.length
+        ? roomBeds.map((b) => ({
+          id: b.id,
+          bedNumber: b.bedNumber,
+          bedType: b.bedType || 'Single',
+          cost: b.cost,
+          status: b.status || 'vacant',
+        }))
+        : [createEmptyBed(1)],
     })
     setFormOpen(true)
   }
-  const handleDelete = (row) => { dispatch(deleteRoom(row.id)); toast.success(`Room ${row.roomNumber} deleted`) }
 
-  const handleSave = () => {
-    if (!form.floorNumber || !form.roomNumber || !form.bedType || !form.acType || !form.costOfBed) {
-      toast.error('Please fill all fields')
+  const openView = async (row) => {
+    try {
+      const detail = await roomsApi.get(row.id)
+      setViewRoom(detail || row.room)
+      setViewOpen(true)
+    } catch {
+      setViewRoom(row.room)
+      setViewOpen(true)
+    }
+  }
+
+  const handleDelete = async (row) => {
+    try {
+      await roomsApi.remove(row.id)
+      await loadRooms(dispatch)
+      toast.success(`Room ${row.roomNumber} deleted`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete room')
+    }
+  }
+
+  const updateBedRow = (index, patch) => {
+    setForm((prev) => ({
+      ...prev,
+      beds: prev.beds.map((bed, i) => (i === index ? { ...bed, ...patch } : bed)),
+    }))
+  }
+
+  const addBedRow = () => {
+    setForm((prev) => ({
+      ...prev,
+      beds: [...prev.beds, createEmptyBed(prev.beds.length + 1)],
+    }))
+  }
+
+  const removeBedRow = (index) => {
+    setForm((prev) => {
+      if (prev.beds.length <= 1) {
+        toast.error('Room must have at least one bed')
+        return prev
+      }
+      return {
+        ...prev,
+        beds: prev.beds
+          .filter((_, i) => i !== index)
+          .map((bed, i) => ({ ...bed, bedNumber: i + 1 })),
+      }
+    })
+  }
+
+  const handleSave = async () => {
+    if (!form.floorNumber || !form.roomNumber || !form.acType) {
+      toast.error('Please fill floor number, room number, and room type')
       return
     }
+    if (!form.beds.length) {
+      toast.error('Add at least one bed')
+      return
+    }
+    for (const bed of form.beds) {
+      if (!bed.bedType || bed.cost === '' || bed.cost == null) {
+        toast.error('Each bed needs a type and cost')
+        return
+      }
+    }
+
     const payload = {
-      floorNumber: form.floorNumber,
-      roomNumber: form.roomNumber,
-      bedType: form.bedType,
+      floorNumber: Number(form.floorNumber),
+      roomNumber: String(form.roomNumber).trim(),
       acType: form.acType,
-      costOfBed: form.costOfBed,
-      numberOfBeds: selectedRoom?.totalBeds || 1,
+      beds: form.beds.map((bed, index) => ({
+        id: bed.id || undefined,
+        bedNumber: Number(bed.bedNumber) || index + 1,
+        bedType: bed.bedType,
+        cost: Number(bed.cost),
+        status: bed.status || 'vacant',
+      })),
     }
-    if (editMode && selectedRoom) {
-      dispatch(updateRoom({ id: selectedRoom.id, ...payload }))
-      toast.success('Room updated successfully')
-    } else {
-      dispatch(addRoom(payload))
-      toast.success('Room added successfully')
+
+    try {
+      if (editMode && selectedRoom) {
+        await roomsApi.update(selectedRoom.id, payload)
+        toast.success('Room updated successfully')
+      } else {
+        await roomsApi.create(payload)
+        toast.success('Room added successfully')
+      }
+      await loadRooms(dispatch)
+      setFormOpen(false)
+      setForm(emptyForm)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save room')
     }
-    setFormOpen(false)
-    setForm(emptyForm)
   }
 
   const columns = [
-    { field: 'floorNumber', headerName: 'Floor Number', flex: 1, minWidth: 120 },
-    { field: 'roomNumber', headerName: 'Room Number', flex: 1, minWidth: 120 },
-    { field: 'bedType', headerName: 'Bed Type', flex: 1, minWidth: 110 },
-    { field: 'acType', headerName: 'Room Type', flex: 1, minWidth: 110 },
-    { field: 'costOfBed', headerName: 'Cost of Bed', flex: 1, minWidth: 130, valueFormatter: (v) => formatCurrency(v) },
+    { field: 'floorNumber', headerName: 'Floor Number', flex: 1, minWidth: 110 },
+    { field: 'roomNumber', headerName: 'Room Number', flex: 1, minWidth: 110 },
+    { field: 'acType', headerName: 'Room Type', flex: 1, minWidth: 100 },
+    { field: 'totalBeds', headerName: 'Total Beds', flex: 1, minWidth: 90 },
+    { field: 'occupiedBeds', headerName: 'Occupied Beds', flex: 1, minWidth: 110 },
+    { field: 'vacantBeds', headerName: 'Vacant Beds', flex: 1, minWidth: 100 },
     {
-      field: 'actions', headerName: 'Actions', width: 100, sortable: false, filterable: false,
+      field: 'actions', headerName: 'Actions', width: 130, sortable: false, filterable: false,
       renderCell: ({ row }) => (
         <div className="flex items-center gap-0.5 h-full">
-          <IconButton size="small" color="primary" onClick={() => openEdit(row)} title="Edit"><Pencil size={16} /></IconButton>
+          <IconButton size="small" color="primary" onClick={() => openView(row)} title="View"><Eye size={16} /></IconButton>
+          <IconButton size="small" color="info" onClick={() => openEdit(row)} title="Edit"><Pencil size={16} /></IconButton>
           <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={16} /></IconButton>
         </div>
       ),
@@ -121,7 +246,7 @@ const Rooms = () => {
         footer={
           <>
             <Button onClick={() => setFormOpen(false)} sx={{ height: 44 }}>Cancel</Button>
-            <Button variant="contained" onClick={handleSave} sx={primaryButtonSx}>Save</Button>
+            <Button variant="contained" onClick={handleSave} sx={primaryButtonSx}>Save Room</Button>
           </>
         }
       >
@@ -142,14 +267,6 @@ const Rooms = () => {
             sx={fieldSx}
           />
           <TextField
-            fullWidth
-            label="Bed Type"
-            value={form.bedType}
-            onChange={(e) => setForm({ ...form, bedType: e.target.value })}
-            placeholder="e.g. Single, Double..."
-            sx={fieldSx}
-          />
-          <TextField
             select
             fullWidth
             label="Room Type"
@@ -159,15 +276,136 @@ const Rooms = () => {
           >
             {acTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
           </TextField>
-          <TextField
-            fullWidth
-            label="Cost of Bed"
-            type="number"
-            value={form.costOfBed}
-            onChange={(e) => setForm({ ...form, costOfBed: e.target.value })}
-            sx={fieldSx}
-          />
+
+          <Divider sx={{ my: 1 }} />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#0f172a' }}>Beds</Typography>
+            <Button size="small" startIcon={<Plus size={16} />} onClick={addBedRow} sx={{ textTransform: 'none' }}>
+              Add Bed
+            </Button>
+          </Box>
+
+          {form.beds.map((bed, index) => (
+            <Box
+              key={bed.id || `new-bed-${index}`}
+              sx={{
+                p: 1.5,
+                border: '1px solid #e2e8f0',
+                borderRadius: 1,
+                bgcolor: '#fafbfc',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748b' }}>
+                  Bed {bed.bedNumber}
+                </Typography>
+                <IconButton size="small" color="error" onClick={() => removeBedRow(index)} title="Remove bed">
+                  <X size={16} />
+                </IconButton>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                <TextField
+                  label="Bed Number"
+                  type="number"
+                  size="small"
+                  value={bed.bedNumber}
+                  onChange={(e) => updateBedRow(index, { bedNumber: e.target.value })}
+                  sx={{ ...fieldSx, flex: '1 1 80px', minWidth: 80 }}
+                />
+                <TextField
+                  select
+                  label="Bed Type"
+                  size="small"
+                  value={bed.bedType}
+                  onChange={(e) => updateBedRow(index, { bedType: e.target.value })}
+                  sx={{ ...fieldSx, flex: '2 1 140px', minWidth: 140 }}
+                >
+                  {bedTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
+                </TextField>
+                <TextField
+                  label="Cost"
+                  type="number"
+                  size="small"
+                  value={bed.cost}
+                  onChange={(e) => updateBedRow(index, { cost: e.target.value })}
+                  sx={{ ...fieldSx, flex: '1 1 100px', minWidth: 100 }}
+                />
+                <TextField
+                  select
+                  label="Status"
+                  size="small"
+                  value={bed.status}
+                  onChange={(e) => updateBedRow(index, { status: e.target.value })}
+                  sx={{ ...fieldSx, flex: '1 1 120px', minWidth: 120 }}
+                >
+                  {bedStatuses.map((status) => (
+                    <MenuItem key={status} value={status}>{capitalizeStatus(status)}</MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+            </Box>
+          ))}
         </DrawerFormStack>
+      </RightDrawer>
+
+      <RightDrawer
+        open={viewOpen}
+        onClose={() => { setViewOpen(false); setViewRoom(null) }}
+        title={viewRoom ? `Room ${viewRoom.roomNumber}` : 'Room Details'}
+        variant="room"
+        footer={<Button onClick={() => { setViewOpen(false); setViewRoom(null) }} sx={{ height: 44 }}>Close</Button>}
+      >
+        {viewRoom && (
+          <DrawerFormStack>
+            <Box sx={{ p: 2, border: '1px solid #e2e8f0', borderRadius: 1, bgcolor: '#fafbfc' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Room Information</Typography>
+              <Typography variant="body2" sx={{ color: '#475569' }}>Floor: {viewRoom.floorNumber}</Typography>
+              <Typography variant="body2" sx={{ color: '#475569' }}>Room: {viewRoom.roomNumber}</Typography>
+              <Typography variant="body2" sx={{ color: '#475569' }}>Type: {displayValue(viewRoom.acType, 'Non A/C')}</Typography>
+              <Typography variant="body2" sx={{ color: '#475569' }}>
+                Beds: {viewRoom.totalBeds ?? viewBeds.length} total · {viewRoom.occupiedBeds ?? viewBeds.filter((b) => b.status === 'occupied').length} occupied · {viewRoom.vacantBeds ?? viewBeds.filter((b) => b.status === 'vacant').length} vacant
+              </Typography>
+            </Box>
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#0f172a' }}>Bed List</Typography>
+            {(viewRoom.beds || viewBeds).map((bed) => (
+              <Box
+                key={bed.id}
+                sx={{
+                  p: 1.5,
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Bed {bed.bedNumber} → {bed.bedType}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>
+                    {formatCurrency(bed.cost)}
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    color: bed.status === 'occupied' ? '#dc2626' : bed.status === 'reserved' ? '#d97706' : '#059669',
+                  }}
+                >
+                  {capitalizeStatus(bed.status)}
+                </Typography>
+              </Box>
+            ))}
+          </DrawerFormStack>
+        )}
       </RightDrawer>
     </PageTransition>
   )

@@ -1,20 +1,47 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TextField, Button, Switch, FormControlLabel, Divider, Typography } from '@mui/material'
 import { Sun, Moon, Save, Building2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import PageTransition from '../components/PageTransition'
 import { useUI, useAppDispatch } from '../hooks/useStore'
 import { updateSettings, setTheme } from '../redux/slices/uiSlice'
+import { settingsApi } from '../services/endpoints'
 import toast from 'react-hot-toast'
+
+const defaultSettings = {
+  hotelName: '',
+  phone: '',
+  email: '',
+  gstNumber: '',
+  address: '',
+}
 
 const Settings = () => {
   const { settings, theme } = useUI()
   const dispatch = useAppDispatch()
-  const [form, setForm] = useState({ ...settings })
+  const [form, setForm] = useState({ ...defaultSettings, ...settings })
+  const [loading, setLoading] = useState(true)
 
-  const handleSave = () => {
-    dispatch(updateSettings(form))
-    toast.success('Settings saved successfully!')
+  useEffect(() => {
+    settingsApi.get()
+      .then((data) => {
+        if (data) {
+          setForm((prev) => ({ ...prev, ...data }))
+          dispatch(updateSettings(data))
+        }
+      })
+      .catch((err) => console.error('Failed to load settings:', err))
+      .finally(() => setLoading(false))
+  }, [dispatch])
+
+  const handleSave = async () => {
+    try {
+      const saved = await settingsApi.update(form)
+      dispatch(updateSettings(saved || form))
+      toast.success('Settings saved successfully!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save settings')
+    }
   }
 
   const handleThemeToggle = () => {
@@ -38,13 +65,13 @@ const Settings = () => {
               <Typography variant="h6" className="font-[Poppins]! font-semibold!">Hotel Information</Typography>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TextField label="Hotel Name" fullWidth value={form.hotelName} onChange={(e) => setForm({ ...form, hotelName: e.target.value })} />
-              <TextField label="Phone" fullWidth value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <TextField label="Email" fullWidth value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <TextField label="GST Number" fullWidth value={form.gstNumber} onChange={(e) => setForm({ ...form, gstNumber: e.target.value })} />
-              <TextField label="Address" fullWidth multiline rows={2} className="md:col-span-2!" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              <TextField label="Hotel Name" fullWidth disabled={loading} value={form.hotelName} onChange={(e) => setForm({ ...form, hotelName: e.target.value })} />
+              <TextField label="Phone" fullWidth disabled={loading} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <TextField label="Email" fullWidth disabled={loading} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <TextField label="GST Number" fullWidth disabled={loading} value={form.gstNumber} onChange={(e) => setForm({ ...form, gstNumber: e.target.value })} />
+              <TextField label="Address" fullWidth multiline rows={2} className="md:col-span-2!" disabled={loading} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </div>
-            <Button variant="contained" startIcon={<Save size={18} />} onClick={handleSave} className="mt-6!">Save Changes</Button>
+            <Button variant="contained" startIcon={<Save size={18} />} onClick={handleSave} disabled={loading} className="mt-6!">Save Changes</Button>
           </motion.div>
 
           <motion.div

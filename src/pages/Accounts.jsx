@@ -1,90 +1,34 @@
-import { useState, useMemo } from 'react'
-import { TextField, MenuItem } from '@mui/material'
+import { useState, useMemo, useEffect } from 'react'
+import { TextField, MenuItem, Typography, Box } from '@mui/material'
 import PageTransition from '../components/PageTransition'
 import MuiDataGrid from '../components/MuiDataGrid'
 import DatePickerField from '../components/DatePickerField'
-import { useBookings } from '../hooks/useStore'
-import { formatCurrency, formatDate, getMonthYear } from '../utils/helpers'
+import { useAccounts, useAppDispatch } from '../hooks/useStore'
+import { formatCurrency, formatDate } from '../utils/helpers'
 import { filterFieldSx } from '../utils/layout'
+import { loadAccounts } from '../services/dataService'
 
 const Accounts = () => {
-  const { list: bookings } = useBookings()
+  const dispatch = useAppDispatch()
+  const { summary } = useAccounts()
   const [searchDate, setSearchDate] = useState('')
   const [filterMode, setFilterMode] = useState('day')
 
-  const computedRecords = useMemo(() => {
-    const map = new Map()
+  useEffect(() => {
+    loadAccounts(dispatch, { view: filterMode, date: searchDate || undefined }).catch(console.error)
+  }, [dispatch, filterMode, searchDate])
 
-    bookings.forEach((b) => {
-      const addToMap = (dateKey, amount, type) => {
-        if (!dateKey || !amount) return
-        const key = dateKey.split('T')[0]
-        if (!map.has(key)) {
-          map.set(key, { id: key, date: key, cash: 0, upi: 0, card: 0, bank: 0, total: 0, bookings: 0 })
-        }
-        const row = map.get(key)
-        row.total += amount
-        row.bookings += 1
-        const t = (type || 'cash').toLowerCase()
-        if (t === 'cash') row.cash += amount
-        else if (t === 'upi') row.upi += amount
-        else if (t === 'card') row.card += amount
-        else row.bank += amount
-      }
-
-      if (b.advancePaid > 0) {
-        addToMap(b.checkInDateTime || b.checkInDate || b.createdAt, b.advancePaid, b.paymentType)
-      }
-      ;(b.payments || []).forEach((p) => addToMap(p.date, p.amount, p.type))
-    })
-
-    return [...map.values()].sort((a, b) => new Date(b.date) - new Date(a.date))
-  }, [bookings])
-
-  const monthRecords = useMemo(() => {
-    const map = new Map()
-    computedRecords.forEach((r) => {
-      const monthKey = getMonthYear(r.date)
-      if (!map.has(monthKey)) {
-        map.set(monthKey, { id: monthKey, period: monthKey, cash: 0, upi: 0, card: 0, bank: 0, total: 0, bookings: 0 })
-      }
-      const row = map.get(monthKey)
-      row.cash += r.cash
-      row.upi += r.upi
-      row.card += r.card
-      row.bank += r.bank
-      row.total += r.total
-      row.bookings += r.bookings
-    })
-    return [...map.values()]
-  }, [computedRecords])
-
-  const filtered = useMemo(() => {
-    if (filterMode === 'month') return monthRecords
-    if (searchDate) return computedRecords.filter((r) => r.date === searchDate)
-    return computedRecords
-  }, [computedRecords, monthRecords, searchDate, filterMode])
+  const filtered = useMemo(() => summary?.rows || [], [summary])
+  const cards = summary?.cards || {}
 
   const dayColumns = [
-    { field: 'date', headerName: 'Date', flex: 1, minWidth: 120, valueFormatter: (v) => formatDate(v) },
+    { field: 'period', headerName: 'Date', flex: 1, minWidth: 120, valueFormatter: (v) => formatDate(v) },
     { field: 'total', headerName: 'Amount', flex: 1, minWidth: 120, valueFormatter: (v) => formatCurrency(v) },
     { field: 'cash', headerName: 'Cash', width: 100, valueFormatter: (v) => formatCurrency(v) },
     { field: 'upi', headerName: 'UPI', width: 100, valueFormatter: (v) => formatCurrency(v) },
     { field: 'card', headerName: 'Card', width: 100, valueFormatter: (v) => formatCurrency(v) },
     { field: 'bank', headerName: 'Bank', width: 100, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'bookings', headerName: 'Bookings', width: 90 },
   ]
-
-  const monthColumns = [
-    { field: 'period', headerName: 'Month', flex: 1, minWidth: 160 },
-    { field: 'total', headerName: 'Amount', flex: 1, minWidth: 120, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'cash', headerName: 'Cash', width: 100, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'upi', headerName: 'UPI', width: 100, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'card', headerName: 'Card', width: 100, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'bookings', headerName: 'Bookings', width: 90 },
-  ]
-
-  const totalAmount = filtered.reduce((sum, r) => sum + (r.total || 0), 0)
 
   return (
     <PageTransition className="page-container">
@@ -98,11 +42,21 @@ const Accounts = () => {
         )}
       </div>
 
-      <MuiDataGrid
-        rows={filtered}
-        columns={filterMode === 'month' ? monthColumns : dayColumns}
-        pageSize={10}
-      />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+        {[
+          { label: 'Total Revenue', value: cards.totalRevenue },
+          { label: 'Total Expenses', value: cards.totalExpenses },
+          { label: 'Net Profit', value: cards.netProfit },
+          { label: 'Pending Amount', value: cards.pendingAmount },
+        ].map((c) => (
+          <Box key={c.label} sx={{ p: 2, border: '1px solid #e2e8f0', borderRadius: 1, bgcolor: '#f8fafc' }}>
+            <Typography variant="caption" color="text.secondary">{c.label}</Typography>
+            <Typography variant="h6" fontWeight={600}>{formatCurrency(c.value || 0)}</Typography>
+          </Box>
+        ))}
+      </Box>
+
+      <MuiDataGrid rows={filtered} columns={dayColumns} pageSize={10} />
     </PageTransition>
   )
 }

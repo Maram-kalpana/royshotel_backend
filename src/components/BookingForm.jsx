@@ -7,7 +7,6 @@ import { fieldSx, primaryButtonSx, drawerFormStackSx } from '../utils/layout'
 import DateTimeSplitField, { combineDateAndTime } from './DateTimeSplitField'
 import DatePickerField from './DatePickerField'
 import FileUpload from './FileUpload'
-import toast from 'react-hot-toast'
 
 const selectMenuProps = {
   disablePortal: true,
@@ -16,7 +15,6 @@ const selectMenuProps = {
 
 const stayTypes = ['Hours', 'Days', 'Weeks', 'Months']
 const paymentTypes = ['Cash', 'UPI', 'Card', 'Bank Transfer']
-const paymentStatuses = ['pending', 'completed']
 
 const rowSx = { display: 'flex', gap: 1.5, width: '100%', flexWrap: { xs: 'wrap', sm: 'nowrap' } }
 const thirdFieldSx = { ...fieldSx, flex: 1, minWidth: { xs: '100%', sm: 0 } }
@@ -36,8 +34,10 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
       checkInTime: now.format('HH:mm'),
       checkOutDate: '',
       checkOutTime: '',
-      paymentDate: now.format('YYYY-MM-DD'),
-      paymentType: 'Cash',
+      advancePaymentType: 'Cash',
+      advancePaymentDate: now.format('YYYY-MM-DD'),
+      balancePaymentType: 'Cash',
+      balancePaymentDate: '',
       paymentStatus: 'pending',
     },
   })
@@ -107,15 +107,18 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
       bedCost: selectedBedData?.cost || 0,
       totalAmount,
       balanceAmount,
+      advancePaymentDate: combineDateAndTime(data.advancePaymentDate, data.checkInTime),
+      balancePaymentDate: data.balancePaymentDate
+        ? combineDateAndTime(data.balancePaymentDate, data.checkInTime)
+        : '',
       photoFile,
       aadhaarFile,
       panFile,
-      photo: photoFile?.preview || `https://i.pravatar.cc/150?u=${data.name}`,
+      photo: photoFile?.preview || null,
       aadhaarDoc: aadhaarFile?.preview || null,
       panDoc: panFile?.preview || null,
-      paymentStatus: data.paymentStatus || (balanceAmount > 0 ? 'pending' : 'completed'),
+      paymentStatus: balanceAmount > 0 && !data.balancePaymentDate ? 'pending' : 'completed',
     })
-    toast.success('Booking created successfully!')
     reset()
     setPhotoFile(null); setAadhaarFile(null); setPanFile(null)
   }
@@ -192,7 +195,7 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
           >
             {filteredBeds.length === 0
               ? <MenuItem value="" disabled>No vacant beds available</MenuItem>
-              : filteredBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber} — {formatCurrency(b.cost)}</MenuItem>)}
+              : filteredBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber} — {b.bedType} — {formatCurrency(b.cost)}</MenuItem>)}
           </TextField>
         )} />
         <Box sx={rowSx}>
@@ -237,31 +240,41 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
 
         <Box sx={rowSx}>
           <Controller name="advancePaid" control={control} render={({ field }) => (
-            <TextField {...field} type="number" label="Advance Paid" onChange={(e) => field.onChange(Number(e.target.value))} sx={{ ...fieldSx, flex: 1 }} />
+            <TextField {...field} type="number" label="Advance" onChange={(e) => field.onChange(Number(e.target.value))} sx={thirdFieldSx} />
           )} />
-          <TextField label="Balance Amount" value={formatCurrency(balanceAmount)} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#dc2626' : '#059669' } }} />
-        </Box>
-
-        <Box sx={rowSx}>
-          <Controller name="paymentDate" control={control} render={({ field: { value, onChange } }) => (
-            <DatePickerField label="Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} />
-          )} />
-          <Controller name="paymentStatus" control={control} render={({ field }) => (
-            <TextField {...field} select label="Payment Status" sx={thirdFieldSx}>
-              {paymentStatuses.map((s) => (
-                <MenuItem key={s} value={s}>{s === 'completed' ? 'Completed' : 'Pending'}</MenuItem>
-              ))}
-            </TextField>
-          )} />
-          <Controller name="paymentType" control={control} render={({ field }) => (
-            <TextField {...field} select label="Payment Type" sx={thirdFieldSx}>
+          <Controller name="advancePaymentType" control={control} render={({ field }) => (
+            <TextField {...field} select label="Advance Payment Type" sx={thirdFieldSx}>
               {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
             </TextField>
           )} />
+          <Controller name="advancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
+            <DatePickerField label="Advance Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} />
+          )} />
         </Box>
-        {paymentStatus === 'completed' && balanceAmount > 0 && (
-          <Typography variant="caption" color="error">Mark completed only when balance is cleared</Typography>
-        )}
+
+        <Box sx={rowSx}>
+          <TextField
+            label="Balance"
+            value={formatCurrency(balanceAmount)}
+            InputProps={{ readOnly: true }}
+            sx={{ ...thirdFieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#dc2626' : '#059669' } }}
+          />
+          <Controller name="balancePaymentType" control={control} render={({ field }) => (
+            <TextField {...field} select label="Balance Payment Type" sx={thirdFieldSx} disabled={balanceAmount <= 0}>
+              {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </TextField>
+          )} />
+          <Controller name="balancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
+            <DatePickerField label="Balance Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} disabled={balanceAmount <= 0} />
+          )} />
+        </Box>
+
+        <TextField
+          label="Payment Status"
+          value={paymentStatus === 'completed' ? 'Completed' : 'Pending'}
+          InputProps={{ readOnly: true }}
+          sx={fieldSx}
+        />
       </Section>
 
       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>

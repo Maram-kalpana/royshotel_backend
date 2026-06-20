@@ -1,16 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { TextField } from '@mui/material'
 import PageTransition from '../components/PageTransition'
 import MuiDataGrid from '../components/MuiDataGrid'
-import { useHotel } from '../hooks/useStore'
+import { useHotel, useAppDispatch } from '../hooks/useStore'
+import { loadRooms } from '../services/dataService'
 import { formatCurrency } from '../utils/helpers'
 import { filterFieldSx } from '../utils/layout'
 
 const Vacancy = () => {
+  const dispatch = useAppDispatch()
   const { beds } = useHotel()
 
   const [floorFilter, setFloorFilter] = useState('')
   const [roomFilter, setRoomFilter] = useState('')
+
+  useEffect(() => {
+    loadRooms(dispatch).catch(console.error)
+  }, [dispatch])
 
   const tableRows = useMemo(() => {
     let rows = beds

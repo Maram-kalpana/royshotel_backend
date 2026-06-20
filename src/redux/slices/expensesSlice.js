@@ -1,20 +1,17 @@
 import { createSlice } from '@reduxjs/toolkit'
-import expenses from '../../data/expenses.json'
 
 const expensesSlice = createSlice({
   name: 'expenses',
   initialState: {
-    list: expenses,
+    list: [],
   },
   reducers: {
+    setExpensesList: (state, action) => {
+      state.list = action.payload || []
+    },
     addExpense: (state, action) => {
       if (!Array.isArray(state.list)) state.list = []
-      const newExpense = {
-        id: `exp-${Date.now()}`,
-        ...action.payload,
-        createdAt: new Date().toISOString(),
-      }
-      state.list.unshift(newExpense)
+      state.list.unshift(action.payload)
     },
     updateExpense: (state, action) => {
       const index = state.list.findIndex((e) => e.id === action.payload.id)
@@ -26,5 +23,5 @@ const expensesSlice = createSlice({
   },
 })
 
-export const { addExpense, updateExpense, deleteExpense } = expensesSlice.actions
+export const { setExpensesList, addExpense, updateExpense, deleteExpense } = expensesSlice.actions
 export default expensesSlice.reducer

@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Button, IconButton, TextField, Dialog, DialogTitle, DialogContent, Stack, Typography } from '@mui/material'
+import { useState, useMemo, useEffect } from 'react'
+import { Button, IconButton, TextField, Dialog, DialogTitle, DialogContent, Stack, Typography, Box } from '@mui/material'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '../components/PageTransition'
@@ -8,7 +8,8 @@ import DatePickerField from '../components/DatePickerField'
 import RightDrawer from '../components/RightDrawer'
 import DrawerFormStack from '../components/DrawerFormStack'
 import { useExpenses, useAppDispatch } from '../hooks/useStore'
-import { addExpense, updateExpense, deleteExpense } from '../redux/slices/expensesSlice'
+import { loadExpenses } from '../services/dataService'
+import { expensesApi } from '../services/endpoints'
 import { formatCurrency, formatDate } from '../utils/helpers'
 import { filterFieldSx, fieldSx, primaryButtonSx } from '../utils/layout'
 
@@ -39,6 +40,10 @@ const Expenses = () => {
   const [searchDescription, setSearchDescription] = useState('')
 
   const expensesList = expensesData?.list || []
+
+  useEffect(() => {
+    loadExpenses(dispatch).catch(console.error)
+  }, [dispatch])
 
   const updateForm = (patch) => setForm((prev) => ({ ...prev, ...patch }))
 
@@ -96,7 +101,7 @@ const Expenses = () => {
     setForm(emptyForm)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.type?.trim() || !form.date || !form.amount) {
       toast.error('Please fill in all required fields')
       return
@@ -108,21 +113,31 @@ const Expenses = () => {
       amount: Number(form.amount),
     }
 
-    if (editExpense) {
-      dispatch(updateExpense({ ...editExpense, ...payload }))
-      toast.success('Expense updated successfully')
-    } else {
-      dispatch(addExpense(payload))
-      toast.success('Expense added successfully')
+    try {
+      if (editExpense) {
+        await expensesApi.update(editExpense.id, payload)
+        toast.success('Expense updated successfully')
+      } else {
+        await expensesApi.create(payload)
+        toast.success('Expense added successfully')
+      }
+      await loadExpenses(dispatch)
+      handleCloseDrawer()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save expense')
     }
-    handleCloseDrawer()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteConfirm) {
-      dispatch(deleteExpense(deleteConfirm.id))
-      toast.success('Expense deleted successfully')
-      setDeleteConfirm(null)
+      try {
+        await expensesApi.remove(deleteConfirm.id)
+        await loadExpenses(dispatch)
+        toast.success('Expense deleted successfully')
+        setDeleteConfirm(null)
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to delete expense')
+      }
     }
   }
 
@@ -161,57 +176,67 @@ const Expenses = () => {
   return (
     <PageTransition className="page-container">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="toolbar-row">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Expenses</h1>
             <p className="text-sm text-slate-500">Manage all expense records</p>
           </div>
           <Button
+            variant="contained"
             startIcon={<Plus size={18} />}
             onClick={() => handleOpenDrawer()}
-            sx={primaryButtonSx}
+            sx={{ ...primaryButtonSx, flexShrink: 0 }}
           >
             Add Expense
           </Button>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <DatePickerField
-              label="Date"
-              value={filterDate}
-              onChange={setFilterDate}
-              slotProps={{ textField: { size: 'small', sx: filterFieldSx } }}
-            />
-
-            <TextField
-              label="Search"
-              placeholder="Search type or description..."
-              value={searchDescription}
-              onChange={(e) => setSearchDescription(e.target.value)}
-              size="small"
-              sx={filterFieldSx}
-            />
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <Typography variant="subtitle2" className="text-slate-600">
-            Total Expenses ({filteredExpenses.length})
-          </Typography>
-          <Typography variant="h6" className="text-slate-900">
-            {formatCurrency(totalAmount)}
-          </Typography>
-        </div>
-
-        <div className="rounded-lg border border-slate-200 bg-white">
-          <MuiDataGrid
-            rows={tableRows}
-            columns={columns}
-            noHorizontalScroll
-            onRowClick={(row) => handleOpenDrawer(row.expense)}
+        <div className="flex flex-wrap items-end gap-3 mb-1">
+          <DatePickerField
+            label="Date"
+            value={filterDate}
+            onChange={setFilterDate}
+            slotProps={{ textField: { size: 'small', sx: { ...filterFieldSx, minWidth: { xs: '100%', md: 160 }, maxWidth: { md: 180 } } } }}
           />
+
+          <TextField
+            label="Search"
+            placeholder="Search..."
+            value={searchDescription}
+            onChange={(e) => setSearchDescription(e.target.value)}
+            size="small"
+            sx={{ ...filterFieldSx, minWidth: { xs: '100%', md: 180 }, maxWidth: { md: 220 } }}
+          />
+
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              px: 2,
+              py: 1,
+              minHeight: 40,
+              borderRadius: 1,
+              border: '1px solid #e2e8f0',
+              bgcolor: '#f8fafc',
+              minWidth: { xs: '100%', md: 160 },
+            }}
+          >
+            <Typography variant="caption" sx={{ color: '#64748b', lineHeight: 1.2 }}>
+              Total ({filteredExpenses.length})
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>
+              {formatCurrency(totalAmount)}
+            </Typography>
+          </Box>
         </div>
+
+        <MuiDataGrid
+          rows={tableRows}
+          columns={columns}
+          noHorizontalScroll
+          onRowClick={(row) => handleOpenDrawer(row.expense)}
+        />
       </div>
 
       <RightDrawer

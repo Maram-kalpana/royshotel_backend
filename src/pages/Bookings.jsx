@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button, IconButton, TextField, MenuItem, Box } from '@mui/material'
 import { Plus, Eye, Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -13,16 +13,17 @@ import BookingForm from '../components/BookingForm'
 import BookingEditForm from '../components/BookingEditForm'
 import CustomerDetailCards from '../components/CustomerDetailCards'
 import { useAuth, useAppDispatch, useHotel, useBookings, useCustomers, useMonthlyPayments } from '../hooks/useStore'
-import { addCustomer, updateCustomer } from '../redux/slices/customerSlice'
-import { addBooking, updateBooking, deleteBooking } from '../redux/slices/bookingSlice'
-import { updateBed } from '../redux/slices/hotelSlice'
 import { formatCurrency, ROLES, getPaymentStatus, formatStayDuration } from '../utils/helpers'
 import { filterFieldSx, primaryButtonSx } from '../utils/layout'
+import { loadBookings, loadCustomers, loadRooms } from '../services/dataService'
+import { bookingsApi } from '../services/endpoints'
 
 const emptyEditForm = {
   name: '', phone: '', address: '', city: '', state: '', aadhaar: '', pan: '',
   totalAmount: '', advancePaid: '',
-  paymentDate: '', paymentTime: '12:00', paymentType: 'Cash', paymentStatus: 'pending',
+  advancePaymentType: 'Cash', advancePaymentDate: '',
+  balancePaymentType: 'Cash', balancePaymentDate: '',
+  paymentStatus: 'pending',
   extendedDate: '', extendedTime: '12:00', extendedAmount: '', extendedStatus: 'pending',
   extendedPaymentType: 'Cash', extendedPaymentDate: '',
   shiftDate: '', newFloorId: '', newRoomId: '', newBedId: '',
@@ -44,8 +45,15 @@ const BookingsContent = () => {
   const [bookingDate, setBookingDate] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('')
   const [editForm, setEditForm] = useState(emptyEditForm)
-
   const updateEditForm = (patch) => setEditForm((prev) => ({ ...prev, ...patch }))
+
+  useEffect(() => {
+    Promise.all([
+      loadBookings(dispatch),
+      loadCustomers(dispatch),
+      loadRooms(dispatch),
+    ]).catch(console.error)
+  }, [dispatch])
 
   const tableRows = useMemo(() => {
     let rows = bookings
@@ -93,67 +101,59 @@ const BookingsContent = () => {
     return rows
   }, [bookings, customers, search, bookingDate, paymentFilter, isSuperAdmin])
 
-  const handleSubmit = (data) => {
-    const bed = beds.find((b) => b.id === data.bedId)
-    const customerId = `cust-${Date.now()}`
-    const checkInDate = data.checkInDateTime?.split('T')[0] || new Date().toISOString().split('T')[0]
-
-    dispatch(addCustomer({
-      id: customerId,
-      name: data.name,
-      phone: data.phone,
-      email: `${data.name.replace(/\s+/g, '.').toLowerCase()}@email.com`,
-      address: data.address,
-      city: data.city,
-      state: data.state,
-      aadhaar: data.aadhaar,
-      pan: data.pan,
-      photo: data.photo,
-      aadhaarDoc: data.aadhaarDoc,
-      panDoc: data.panDoc,
-      status: 'checked-in',
-      roomId: data.roomId,
-      bedId: data.bedId,
-      roomNumber: bed?.roomNumber,
-      bedNumber: bed?.bedNumber,
-      checkInDate,
-      checkInDateTime: data.checkInDateTime,
-    }))
-    dispatch(updateBed({ ...bed, status: 'occupied', customerId }))
-    dispatch(addBooking({
-      id: `booking-${Date.now()}`,
-      customerId,
-      customerName: data.name,
-      phone: data.phone,
-      bedId: data.bedId,
-      roomId: data.roomId,
-      roomNumber: bed?.roomNumber,
-      bedNumber: bed?.bedNumber,
-      floorNumber: bed?.floorNumber,
-      stayType: data.stayType,
-      duration: data.duration,
-      bedCost: data.bedCost,
-      totalAmount: data.totalAmount,
-      advancePaid: data.advancePaid,
-      balanceAmount: data.balanceAmount,
-      paymentType: data.paymentType,
-      paymentStatus: data.paymentStatus,
-      status: 'active',
-      checkInDate,
-      checkInDateTime: data.checkInDateTime,
-      checkOutDateTime: data.checkOutDateTime || '',
-      createdAt: checkInDate,
-      payments: data.advancePaid > 0 ? [{ amount: data.advancePaid, date: data.checkInDateTime, type: data.paymentType, status: data.paymentStatus }] : [],
-    }))
-    setDrawerOpen(false)
+  const reloadBookingData = async () => {
+    await Promise.all([
+      loadBookings(dispatch),
+      loadCustomers(dispatch),
+      loadRooms(dispatch),
+    ])
   }
 
-  const handleDelete = (row) => {
-    const booking = row.booking
-    const bed = beds.find((b) => b.id === booking.bedId)
-    if (bed) dispatch(updateBed({ ...bed, status: 'vacant', customerId: null }))
-    dispatch(deleteBooking(booking.id))
-    toast.success('Booking deleted')
+  const handleSubmit = async (data) => {
+    try {
+      await bookingsApi.create({
+        name: data.name,
+        phone: data.phone,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        aadhaar: data.aadhaar,
+        pan: data.pan,
+        photo: data.photo,
+        aadhaarDoc: data.aadhaarDoc,
+        panDoc: data.panDoc,
+        bedId: data.bedId,
+        stayType: data.stayType,
+        duration: data.duration,
+        bedCost: data.bedCost,
+        totalAmount: data.totalAmount,
+        advancePaid: data.advancePaid,
+        balanceAmount: data.balanceAmount,
+        paymentType: data.advancePaymentType,
+        advancePaymentType: data.advancePaymentType,
+        advancePaymentDate: data.advancePaymentDate,
+        balancePaymentType: data.balancePaymentType,
+        balancePaymentDate: data.balancePaymentDate,
+        paymentStatus: data.paymentStatus,
+        checkInDateTime: data.checkInDateTime,
+        checkOutDateTime: data.checkOutDateTime || null,
+      })
+      await reloadBookingData()
+      toast.success('Booking created successfully')
+      setDrawerOpen(false)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create booking')
+    }
+  }
+
+  const handleDelete = async (row) => {
+    try {
+      await bookingsApi.remove(row.booking.id)
+      await reloadBookingData()
+      toast.success('Booking deleted')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete booking')
+    }
   }
 
   const openEdit = (row) => {
@@ -172,9 +172,10 @@ const BookingsContent = () => {
       pan: customer?.pan || '',
       totalAmount: String(b.totalAmount ?? 0),
       advancePaid: String(b.advancePaid ?? 0),
-      paymentDate: '',
-      paymentTime: new Date().toTimeString().slice(0, 5),
-      paymentType: b.paymentType || 'Cash',
+      advancePaymentType: b.paymentType || 'Cash',
+      advancePaymentDate: b.checkInDateTime?.split('T')[0] || today,
+      balancePaymentType: b.paymentType || 'Cash',
+      balancePaymentDate: '',
       paymentStatus: b.paymentStatus || getPaymentStatus(b.balanceAmount),
       extendedDate: ext.date,
       extendedTime: ext.time || '12:00',
@@ -189,155 +190,68 @@ const BookingsContent = () => {
     })
   }
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (!editBooking) return
-    let updated = { ...editBooking }
-    let changed = false
+
     const customer = customers.find((c) => c.id === editBooking.customerId)
-    const newTotal = Number(editForm.totalAmount) || updated.totalAmount || 0
+    const newTotal = Number(editForm.totalAmount) || editBooking.totalAmount || 0
     const newAdvance = Number(editForm.advancePaid) || 0
     const newBalance = Math.max(0, newTotal - newAdvance)
 
-    if (customer) {
-      const customerChanged =
-        editForm.name !== customer.name ||
-        editForm.phone !== customer.phone ||
-        editForm.address !== customer.address ||
-        editForm.city !== customer.city ||
-        editForm.state !== customer.state ||
-        editForm.aadhaar !== customer.aadhaar ||
-        editForm.pan !== customer.pan
-
-      if (customerChanged) {
-        dispatch(updateCustomer({
-          ...customer,
-          name: editForm.name,
-          phone: editForm.phone,
-          address: editForm.address,
-          city: editForm.city,
-          state: editForm.state,
-          aadhaar: editForm.aadhaar,
-          pan: editForm.pan,
-        }))
-        changed = true
-      }
+    const payload = {
+      customerId: editBooking.customerId,
+      customerName: editForm.name,
+      name: editForm.name,
+      phone: editForm.phone,
+      address: editForm.address,
+      city: editForm.city,
+      state: editForm.state,
+      aadhaar: editForm.aadhaar,
+      pan: editForm.pan,
+      totalAmount: newTotal,
+      advancePaid: newAdvance,
+      balanceAmount: newBalance,
+      paymentType: editForm.balancePaymentDate ? editForm.balancePaymentType : editForm.advancePaymentType,
+      paymentStatus: editForm.paymentStatus,
+      checkOutDateTime: editBooking.checkOutDateTime,
+      extendedUpto: editBooking.extendedUpto,
+      extendedAmount: editBooking.extendedAmount,
+      extendedStatus: editBooking.extendedStatus,
+      extendedPaymentType: editBooking.extendedPaymentType,
+      extendedPaymentDate: editBooking.extendedPaymentDate,
+      status: editBooking.status,
     }
 
-    if (
-      editForm.name !== updated.customerName ||
-      editForm.phone !== (customer?.phone || updated.phone) ||
-      newTotal !== updated.totalAmount ||
-      newAdvance !== updated.advancePaid ||
-      editForm.paymentType !== updated.paymentType ||
-      editForm.paymentStatus !== updated.paymentStatus
-    ) {
-      updated = {
-        ...updated,
-        customerName: editForm.name,
-        phone: editForm.phone,
-        totalAmount: newTotal,
-        advancePaid: newAdvance,
-        balanceAmount: newBalance,
-        paymentType: editForm.paymentType,
-        paymentStatus: editForm.paymentStatus,
-      }
-      changed = true
-    }
-
-    if (editForm.paymentDate && (updated.balanceAmount || 0) > 0) {
-      const paymentDateTime = combineDateAndTime(editForm.paymentDate, editForm.paymentTime)
-      const payAmount = updated.balanceAmount || 0
-      const paidAdvance = (updated.advancePaid || 0) + payAmount
-      const paidStatus = editForm.paymentStatus === 'completed' ? 'completed' : 'pending'
-      updated = {
-        ...updated,
-        advancePaid: paidAdvance,
-        balanceAmount: 0,
-        paymentStatus: paidStatus,
-        paymentType: editForm.paymentType,
-        payments: [...(updated.payments || []), {
-          amount: payAmount,
-          date: paymentDateTime,
-          type: editForm.paymentType,
-          status: paidStatus,
-        }],
-      }
-      changed = true
+    if (editForm.balancePaymentDate && newBalance > 0) {
+      payload.balancePaymentDate = combineDateAndTime(editForm.balancePaymentDate, editForm.paymentTime || '12:00')
+      payload.paymentStatus = 'completed'
+      payload.balanceAmount = 0
+      payload.advancePaid = newTotal
     }
 
     const extAmount = Number(editForm.extendedAmount) || 0
     if (editForm.extendedDate && extAmount > 0) {
-      const extendedUpto = combineDateAndTime(editForm.extendedDate, editForm.extendedTime)
-      const extendedPaymentDateTime = editForm.extendedPaymentDate
+      payload.extendedUpto = combineDateAndTime(editForm.extendedDate, editForm.extendedTime)
+      payload.extendedAmount = (editBooking.extendedAmount || 0) + extAmount
+      payload.extendedStatus = editForm.extendedStatus
+      payload.extendedPaymentType = editForm.extendedPaymentType
+      payload.extendedPaymentDate = editForm.extendedPaymentDate
         ? combineDateAndTime(editForm.extendedPaymentDate, editForm.extendedTime)
-        : ''
-      updated = {
-        ...updated,
-        extendedUpto,
-        extendedAmount: (updated.extendedAmount || 0) + extAmount,
-        extendedStatus: editForm.extendedStatus,
-        extendedPaymentType: editForm.extendedPaymentType,
-        extendedPaymentDate: extendedPaymentDateTime || editForm.extendedPaymentDate,
-        totalAmount: (updated.totalAmount || 0) + extAmount,
-        balanceAmount: (updated.balanceAmount || 0) + extAmount,
-        paymentStatus: editForm.extendedStatus === 'completed' ? updated.paymentStatus : 'pending',
-      }
-      changed = true
+        : editForm.extendedPaymentDate
+      payload.totalAmount = newTotal + extAmount
+      payload.balanceAmount = (payload.balanceAmount || newBalance) + extAmount
+      payload.paymentStatus = editForm.extendedStatus === 'completed' ? payload.paymentStatus : 'pending'
     }
 
-    if (editForm.newBedId && editForm.newBedId !== editBooking.bedId) {
-      if (!editForm.shiftDate) { toast.error('Enter shift date'); return }
-
-      const newBed = beds.find((b) => b.id === editForm.newBedId)
-      const oldBed = beds.find((b) => b.id === editBooking.bedId)
-      if (!newBed) { toast.error('Invalid bed selected'); return }
-
-      const shiftRecord = {
-        shiftType: 'Room Shift',
-        oldRoomNumber: editBooking.roomNumber,
-        oldBedNumber: editBooking.bedNumber,
-        oldFloorNumber: editBooking.floorNumber,
-        newRoomNumber: newBed.roomNumber,
-        newBedNumber: newBed.bedNumber,
-        newFloorNumber: newBed.floorNumber,
-        shiftDate: editForm.shiftDate,
-        createdAt: new Date().toISOString(),
-      }
-
-      if (oldBed) dispatch(updateBed({ ...oldBed, status: 'vacant', customerId: null }))
-      dispatch(updateBed({ ...newBed, status: 'occupied', customerId: editBooking.customerId }))
-
-      if (customer) {
-        dispatch(updateCustomer({
-          ...customer,
-          roomId: newBed.roomId,
-          bedId: newBed.id,
-          roomNumber: newBed.roomNumber,
-          bedNumber: newBed.bedNumber,
-        }))
-      }
-
-      updated = {
-        ...updated,
-        bedId: newBed.id,
-        roomId: newBed.roomId,
-        roomNumber: newBed.roomNumber,
-        bedNumber: newBed.bedNumber,
-        floorNumber: newBed.floorNumber,
-        shifts: [...(updated.shifts || []), shiftRecord],
-      }
-      changed = true
+    try {
+      await bookingsApi.update(editBooking.id, payload)
+      await reloadBookingData()
+      toast.success('Booking updated')
+      setEditBooking(null)
+      setEditForm(emptyEditForm)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update booking')
     }
-
-    if (!changed) {
-      toast.error('Update booking details before saving')
-      return
-    }
-
-    dispatch(updateBooking(updated))
-    toast.success('Booking updated')
-    setEditBooking(null)
-    setEditForm(emptyEditForm)
   }
 
   const columns = [

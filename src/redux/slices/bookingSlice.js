@@ -1,12 +1,14 @@
 import { createSlice } from '@reduxjs/toolkit'
-import { bookings as bookingsData } from '../../data'
 
 const bookingSlice = createSlice({
   name: 'bookings',
   initialState: {
-    list: bookingsData,
+    list: [],
   },
   reducers: {
+    setBookingsList: (state, action) => {
+      state.list = action.payload || []
+    },
     addBooking: (state, action) => {
       state.list.unshift(action.payload)
     },
@@ -20,5 +22,5 @@ const bookingSlice = createSlice({
   },
 })
 
-export const { addBooking, updateBooking, deleteBooking } = bookingSlice.actions
+export const { setBookingsList, addBooking, updateBooking, deleteBooking } = bookingSlice.actions
 export default bookingSlice.reducer

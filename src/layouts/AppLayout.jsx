@@ -3,6 +3,7 @@ import { Box } from '@mui/material'
 import { AnimatePresence } from 'framer-motion'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
+import AppDataLoader from '../components/AppDataLoader'
 import { useUI } from '../hooks/useStore'
 import { getSidebarOffset, hideScrollbarSx } from '../utils/layout'
 
@@ -11,6 +12,7 @@ const AppLayout = () => {
   const sidebarOffset = getSidebarOffset(sidebarCollapsed)
 
   return (
+    <AppDataLoader>
     <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: '#f8fafc' }}>
       <Sidebar />
       <Box
@@ -42,6 +44,7 @@ const AppLayout = () => {
         </Box>
       </Box>
     </Box>
+    </AppDataLoader>
   )
 }
 

@@ -27,6 +27,7 @@ const Sidebar = () => {
   const width = sidebarCollapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded
 
   const handleLogout = () => {
+    localStorage.removeItem('hotel_token')
     dispatch(logout())
     toast.success('Logged out successfully')
     navigate('/login')

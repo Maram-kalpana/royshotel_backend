@@ -8,6 +8,7 @@ import { StatCardSkeleton } from '../components/LoadingSkeleton'
 import { useHotel, useBookings, useCustomers, useMonthlyPayments } from '../hooks/useStore'
 import { computeHotelStats, formatCurrency } from '../utils/helpers'
 import { computeMonthlyPaymentStats } from '../utils/monthlyPaymentHelpers'
+import { dashboardApi } from '../services/endpoints'
 import { motion } from 'framer-motion'
 
 const SuperAdminDashboard = () => {
@@ -18,8 +19,9 @@ const SuperAdminDashboard = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800)
-    return () => clearTimeout(timer)
+    dashboardApi.stats()
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [])
 
   const stats = computeHotelStats(hotel, customers, { list: bookings })

@@ -61,7 +61,6 @@ const PlainTable = ({
           overflowX: noHorizontalScroll ? 'hidden' : 'auto',
           overflowY: 'hidden',
           WebkitOverflowScrolling: 'touch',
-          pb: 0.5,
           ...(noHorizontalScroll ? {} : horizontalScrollbarSx),
           border: `1px solid ${BORDER}`,
           bgcolor: '#fff',
@@ -112,7 +111,9 @@ const PlainTable = ({
                 </Box>
               </Box>
             ) : (
-              pageRows.map((row, idx) => (
+              pageRows.map((row, idx) => {
+                const isLastRow = idx === pageRows.length - 1
+                return (
                 <Box
                   component="tr"
                   key={getRowId(row)}
@@ -132,7 +133,7 @@ const PlainTable = ({
                         py: 1.25,
                         fontSize: '0.8125rem',
                         color: '#334155',
-                        borderBottom: `1px solid ${BORDER}`,
+                        borderBottom: isLastRow ? 'none' : `1px solid ${BORDER}`,
                         borderRight: `1px solid ${BORDER}`,
                         verticalAlign: 'middle',
                         ...getColumnSx(col),
@@ -144,7 +145,7 @@ const PlainTable = ({
                     </Box>
                   ))}
                 </Box>
-              ))
+              )})
             )}
           </Box>
         </Box>

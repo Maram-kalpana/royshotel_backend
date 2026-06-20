@@ -100,37 +100,51 @@ const BookingEditForm = ({
             onChange={(e) => onChange({ totalAmount: e.target.value })}
             sx={{ ...fieldSx, flex: 1 }}
           />
+        </Box>
+
+        <Box sx={rowSx}>
           <TextField
             fullWidth
             type="number"
-            label="Advance Paid"
+            label="Advance"
             value={form.advancePaid}
             onChange={(e) => onChange({ advancePaid: e.target.value })}
-            sx={{ ...fieldSx, flex: 1 }}
+            sx={thirdFieldSx}
           />
-          <TextField
-            fullWidth
-            label="Balance Amount"
-            value={formatCurrency(Math.max(0, (Number(form.totalAmount) || 0) - (Number(form.advancePaid) || 0)))}
-            InputProps={{ readOnly: true }}
-            sx={{ ...fieldSx, flex: 1, '& input': { fontWeight: 600 } }}
-          />
-        </Box>
-        <Box sx={rowSx}>
-          <TextField select fullWidth label="Payment Type" value={form.paymentType} onChange={(e) => onChange({ paymentType: e.target.value })} sx={thirdFieldSx}>
+          <TextField select fullWidth label="Advance Payment Type" value={form.advancePaymentType} onChange={(e) => onChange({ advancePaymentType: e.target.value })} sx={thirdFieldSx}>
             {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
           </TextField>
-          <TextField select fullWidth label="Payment Status" value={form.paymentStatus} onChange={(e) => onChange({ paymentStatus: e.target.value })} sx={thirdFieldSx}>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-          </TextField>
+          <DatePickerField
+            label="Advance Payment Date"
+            value={form.advancePaymentDate}
+            onChange={(v) => onChange({ advancePaymentDate: v })}
+            sx={thirdFieldSx}
+          />
         </Box>
-        <DatePickerField
-          label="Balance Amount Paid Date"
-          value={form.paymentDate}
-          onChange={(v) => onChange({ paymentDate: v })}
-          sx={fieldSx}
-        />
+
+        <Box sx={rowSx}>
+          <TextField
+            fullWidth
+            label="Balance"
+            value={formatCurrency(Math.max(0, (Number(form.totalAmount) || 0) - (Number(form.advancePaid) || 0)))}
+            InputProps={{ readOnly: true }}
+            sx={{ ...thirdFieldSx, '& input': { fontWeight: 600 } }}
+          />
+          <TextField select fullWidth label="Balance Payment Type" value={form.balancePaymentType} onChange={(e) => onChange({ balancePaymentType: e.target.value })} sx={thirdFieldSx}>
+            {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+          </TextField>
+          <DatePickerField
+            label="Balance Payment Date"
+            value={form.balancePaymentDate}
+            onChange={(v) => onChange({ balancePaymentDate: v })}
+            sx={thirdFieldSx}
+          />
+        </Box>
+
+        <TextField select fullWidth label="Payment Status" value={form.paymentStatus} onChange={(e) => onChange({ paymentStatus: e.target.value })} sx={fieldSx}>
+          <MenuItem value="pending">Pending</MenuItem>
+          <MenuItem value="completed">Completed</MenuItem>
+        </TextField>
       </Section>
 
       <Section title="Extend Stay">
