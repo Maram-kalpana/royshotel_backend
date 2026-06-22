@@ -1,7 +1,12 @@
 import AppRoutes from './routes'
+import AuthBootstrap from './components/AuthBootstrap'
 
 function App() {
-  return <AppRoutes />
+  return (
+    <AuthBootstrap>
+      <AppRoutes />
+    </AuthBootstrap>
+  )
 }
 
 export default App

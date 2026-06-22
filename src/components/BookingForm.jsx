@@ -3,17 +3,17 @@ import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
 import { formatCurrency } from '../utils/helpers'
-import { fieldSx, primaryButtonSx, drawerFormStackSx } from '../utils/layout'
+import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx } from '../utils/layout'
 import DateTimeSplitField, { combineDateAndTime } from './DateTimeSplitField'
 import DatePickerField from './DatePickerField'
 import FileUpload from './FileUpload'
+import PaymentStatusBadge from './PaymentStatusBadge'
 
 const selectMenuProps = {
   disablePortal: true,
   PaperProps: { sx: { maxHeight: 280 } },
 }
 
-const stayTypes = ['Hours', 'Days', 'Weeks', 'Months']
 const paymentTypes = ['Cash', 'UPI', 'Card', 'Bank Transfer']
 
 const rowSx = { display: 'flex', gap: 1.5, width: '100%', flexWrap: { xs: 'wrap', sm: 'nowrap' } }
@@ -29,7 +29,7 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
     defaultValues: {
       name: '', phone: '', address: '', city: '', state: '',
       aadhaar: '', pan: '', floorId: '', roomId: '', bedId: '',
-      stayType: 'Days', duration: 1, advancePaid: 0, totalAmount: 0,
+      stayType: 'Days', duration: '', advancePaid: '', totalAmount: '',
       checkInDate: now.format('YYYY-MM-DD'),
       checkInTime: now.format('HH:mm'),
       checkOutDate: '',
@@ -45,8 +45,8 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
   const selectedFloor = watch('floorId')
   const selectedRoom = watch('roomId')
   const selectedBed = watch('bedId')
-  const duration = watch('duration')
-  const advancePaid = watch('advancePaid')
+  const duration = Number(watch('duration')) || 0
+  const advancePaid = Number(watch('advancePaid')) || 0
   const totalAmount = Number(watch('totalAmount')) || 0
   const paymentStatus = watch('paymentStatus')
   const checkInDate = watch('checkInDate')
@@ -102,6 +102,8 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
 
     onSubmit({
       ...data,
+      stayType: 'Days',
+      duration: duration || 1,
       checkInDateTime,
       checkOutDateTime,
       bedCost: selectedBedData?.cost || 0,
@@ -195,17 +197,12 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
           >
             {filteredBeds.length === 0
               ? <MenuItem value="" disabled>No vacant beds available</MenuItem>
-              : filteredBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber} — {b.bedType} — {formatCurrency(b.cost)}</MenuItem>)}
+              : filteredBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber} — {formatCurrency(b.cost)}</MenuItem>)}
           </TextField>
         )} />
         <Box sx={rowSx}>
           <Controller name="duration" control={control} rules={{ required: true, min: 1 }} render={({ field }) => (
-            <TextField {...field} type="number" label="Duration" error={!!errors.duration} sx={{ ...fieldSx, flex: 1 }} />
-          )} />
-          <Controller name="stayType" control={control} render={({ field }) => (
-            <TextField {...field} select label="Stay Type" sx={{ ...fieldSx, flex: 1 }}>
-              {stayTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-            </TextField>
+            <TextField {...field} type="number" label="Duration (Days)" error={!!errors.duration} sx={{ ...amountFieldSx, flex: 1 }} />
           )} />
         </Box>
         <DateTimeSplitField
@@ -234,7 +231,7 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
             type="number"
             label="Total Amount"
             onChange={(e) => field.onChange(Number(e.target.value))}
-            sx={fieldSx}
+            sx={amountFieldSx}
           />
         )} />
 
@@ -257,24 +254,33 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
             label="Balance"
             value={formatCurrency(balanceAmount)}
             InputProps={{ readOnly: true }}
-            sx={{ ...thirdFieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#dc2626' : '#059669' } }}
+            sx={{ ...thirdFieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#c2410c' : '#15803d' } }}
           />
-          <Controller name="balancePaymentType" control={control} render={({ field }) => (
-            <TextField {...field} select label="Balance Payment Type" sx={thirdFieldSx} disabled={balanceAmount <= 0}>
-              {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-            </TextField>
-          )} />
-          <Controller name="balancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
-            <DatePickerField label="Balance Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} disabled={balanceAmount <= 0} />
-          )} />
+          {balanceAmount <= 0 && (
+            <Box sx={{ ...thirdFieldSx, display: 'flex', alignItems: 'center' }}>
+              <PaymentStatusBadge status="completed" />
+            </Box>
+          )}
+          {balanceAmount > 0 && (
+            <>
+              <Controller name="balancePaymentType" control={control} render={({ field }) => (
+                <TextField {...field} select label="Balance Payment Type" sx={thirdFieldSx}>
+                  {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+              )} />
+              <Controller name="balancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
+                <DatePickerField label="Balance Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} />
+              )} />
+            </>
+          )}
         </Box>
 
-        <TextField
-          label="Payment Status"
-          value={paymentStatus === 'completed' ? 'Completed' : 'Pending'}
-          InputProps={{ readOnly: true }}
-          sx={fieldSx}
-        />
+        {balanceAmount > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.875rem' }}>Payment Status:</Typography>
+            <PaymentStatusBadge status={paymentStatus} balanceAmount={balanceAmount} />
+          </Box>
+        )}
       </Section>
 
       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>

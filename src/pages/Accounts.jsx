@@ -8,6 +8,13 @@ import { formatCurrency, formatDate } from '../utils/helpers'
 import { filterFieldSx } from '../utils/layout'
 import { loadAccounts } from '../services/dataService'
 
+const compactFilterSx = {
+  ...filterFieldSx,
+  flex: { xs: '1 1 100%', md: '0 0 180px' },
+  minWidth: { xs: '100%', md: 180 },
+  maxWidth: { md: 200 },
+}
+
 const Accounts = () => {
   const dispatch = useAppDispatch()
   const { summary } = useAccounts()
@@ -18,7 +25,7 @@ const Accounts = () => {
     loadAccounts(dispatch, { view: filterMode, date: searchDate || undefined }).catch(console.error)
   }, [dispatch, filterMode, searchDate])
 
-  const filtered = useMemo(() => summary?.rows || [], [summary])
+  const rows = useMemo(() => summary?.rows || [], [summary])
   const cards = summary?.cards || {}
 
   const dayColumns = [
@@ -32,31 +39,41 @@ const Accounts = () => {
 
   return (
     <PageTransition className="page-container">
-      <div className="flex flex-wrap items-end gap-3 mb-5">
-        <TextField select label="View By" value={filterMode} onChange={(e) => setFilterMode(e.target.value)} sx={filterFieldSx}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: { xs: 'wrap', md: 'nowrap' },
+          alignItems: 'flex-end',
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <TextField select label="View By" value={filterMode} onChange={(e) => setFilterMode(e.target.value)} sx={compactFilterSx}>
           <MenuItem value="day">Day</MenuItem>
           <MenuItem value="month">Month</MenuItem>
         </TextField>
-        {filterMode === 'day' && (
-          <DatePickerField label="Search By Date" value={searchDate} onChange={setSearchDate} sx={filterFieldSx} />
-        )}
-      </div>
-
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-        {[
-          { label: 'Total Revenue', value: cards.totalRevenue },
-          { label: 'Total Expenses', value: cards.totalExpenses },
-          { label: 'Net Profit', value: cards.netProfit },
-          { label: 'Pending Amount', value: cards.pendingAmount },
-        ].map((c) => (
-          <Box key={c.label} sx={{ p: 2, border: '1px solid #e2e8f0', borderRadius: 1, bgcolor: '#f8fafc' }}>
-            <Typography variant="caption" color="text.secondary">{c.label}</Typography>
-            <Typography variant="h6" fontWeight={600}>{formatCurrency(c.value || 0)}</Typography>
-          </Box>
-        ))}
+        <DatePickerField label="Search By Date" value={searchDate} onChange={setSearchDate} sx={compactFilterSx} />
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            px: 2,
+            py: 1,
+            minHeight: 44,
+            borderRadius: 1,
+            border: '1px solid #e2e8f0',
+            bgcolor: '#f8fafc',
+            flex: { xs: '1 1 100%', md: '0 0 200px' },
+            minWidth: { xs: '100%', md: 200 },
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">Total Revenue</Typography>
+          <Typography variant="body1" fontWeight={600}>{formatCurrency(cards.totalRevenue || 0)}</Typography>
+        </Box>
       </Box>
 
-      <MuiDataGrid rows={filtered} columns={dayColumns} pageSize={10} />
+      <MuiDataGrid rows={rows} columns={dayColumns} pageSize={10} />
     </PageTransition>
   )
 }

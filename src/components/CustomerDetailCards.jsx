@@ -1,5 +1,5 @@
 import { Avatar } from '@mui/material'
-import { User, CreditCard, IdCard, Building2, Clock } from 'lucide-react'
+import { User, CreditCard, IdCard, Building2, Clock, CalendarClock, ArrowRightLeft } from 'lucide-react'
 import {
   formatCurrency, formatDate, displayValue, mapStayTypeLabel,
   formatCheckInDateTime, formatCheckOutDateTime,
@@ -117,6 +117,32 @@ const CustomerDetailCards = ({ customer, booking, bed, monthlyTenant }) => {
           { label: 'Payment Status', value: booking?.paymentStatus },
         ]}
       />
+
+      {booking?.extendedUpto && (
+        <DetailCard
+          title="Extended Stay"
+          icon={CalendarClock}
+          items={[
+            { label: 'Extended Upto', value: booking.extendedUpto ? new Date(booking.extendedUpto).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—' },
+            { label: 'Extension Amount', value: formatCurrency(booking.extendedAmount) },
+            { label: 'Extension Status', value: booking.extendedStatus },
+            { label: 'Extension Payment Type', value: booking.extendedPaymentType },
+            { label: 'Extension Payment Date', value: booking.extendedPaymentDate ? formatDate(String(booking.extendedPaymentDate).split('T')[0]) : '—' },
+          ]}
+        />
+      )}
+
+      {booking?.shifts?.length > 0 && (
+        <DetailCard
+          title="Room Shift History"
+          icon={ArrowRightLeft}
+          items={booking.shifts.flatMap((shift, index) => [
+            { label: `Shift ${index + 1} Date`, value: shift.shiftDate || shift.shift_date ? formatDate(shift.shiftDate || shift.shift_date) : '—' },
+            { label: `Shift ${index + 1} From`, value: `F${shift.oldFloorNumber ?? shift.old_floor_number} · R${shift.oldRoomNumber ?? shift.old_room_number} · B${shift.oldBedNumber ?? shift.old_bed_number}` },
+            { label: `Shift ${index + 1} To`, value: `F${shift.newFloorNumber ?? shift.new_floor_number} · R${shift.newRoomNumber ?? shift.new_room_number} · B${shift.newBedNumber ?? shift.new_bed_number}` },
+          ])}
+        />
+      )}
 
       {isMonthly && monthlyTenant && (
         <DetailCard

@@ -47,7 +47,7 @@ export const getDashboardStats = async () => {
   `)
 
   const [[pendingRent]] = await query(`
-    SELECT COALESCE(SUM(pending_amount), 0) AS pendingRentAmount
+    SELECT COALESCE(SUM(GREATEST(monthly_rent - COALESCE(amount_paid, 0), 0)), 0) AS pendingRentAmount
     FROM monthly_payments WHERE status IN ('pending', 'partial')
   `)
 

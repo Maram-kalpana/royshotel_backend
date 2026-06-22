@@ -10,14 +10,11 @@ import MarkPaidModal from '../components/monthlyPayments/MarkPaidModal'
 import TenantForm from '../components/monthlyPayments/TenantForm'
 import CustomerDetailCards from '../components/CustomerDetailCards'
 import MonthlyPaymentStatusBadge from '../components/monthlyPayments/MonthlyPaymentStatusBadge'
-import { useMonthlyPayments, useAppDispatch, useHotel, useCustomers, useBookings } from '../hooks/useStore'
-import { markTenantPaid, addTenant, updateTenant, deleteTenant } from '../redux/slices/monthlyPaymentsSlice'
-import { addCustomer, updateCustomer, checkoutCustomer } from '../redux/slices/customerSlice'
-import { addBooking, updateBooking, deleteBooking } from '../redux/slices/bookingSlice'
-import { updateBed } from '../redux/slices/hotelSlice'
+import { useMonthlyPayments, useAppDispatch, useHotel, useCustomers } from '../hooks/useStore'
 import { formatCurrency, displayValue } from '../utils/helpers'
 import { primaryButtonSx } from '../utils/layout'
-import { loadMonthlyPayments } from '../services/dataService'
+import { loadMonthlyPayments, loadCustomers, loadRooms } from '../services/dataService'
+import { monthlyPaymentsApi } from '../services/endpoints'
 import {
   getDueDateLabel,
   getCurrentMonthYear,
@@ -34,7 +31,6 @@ const MonthlyPayments = () => {
   const { tenants } = useMonthlyPayments()
   const { floors, rooms, beds } = useHotel()
   const { list: customers } = useCustomers()
-  const { list: bookings } = useBookings()
   const dispatch = useAppDispatch()
 
   const [tab, setTab] = useState(TAB_ALL)
@@ -45,8 +41,20 @@ const MonthlyPayments = () => {
   const [viewTenant, setViewTenant] = useState(null)
 
   useEffect(() => {
-    loadMonthlyPayments(dispatch).catch(console.error)
+    Promise.all([
+      loadMonthlyPayments(dispatch),
+      loadCustomers(dispatch),
+      loadRooms(dispatch),
+    ]).catch(console.error)
   }, [dispatch])
+
+  const reloadTenantData = async () => {
+    await Promise.all([
+      loadMonthlyPayments(dispatch),
+      loadCustomers(dispatch),
+      loadRooms(dispatch),
+    ])
+  }
 
   const currentMonth = getCurrentMonthYear()
 
@@ -72,176 +80,89 @@ const MonthlyPayments = () => {
   }, [tableRows, tab, currentMonth])
 
   const editCustomer = editTenant ? customers.find((c) => c.id === editTenant.customerId) : null
-  const editBooking = editTenant ? bookings.find((b) => b.customerId === editTenant.customerId) : null
 
-  const buildTenantPayload = (data, existingTenant = null) => {
-    const bed = beds.find((b) => b.id === data.bedId)
-    const checkInDate = data.checkInDateTime?.split('T')[0] || data.checkInDate
-    return {
-      customerName: data.name,
-      name: data.name,
-      phone: data.phone,
-      address: data.address,
-      city: data.city,
-      state: data.state,
-      aadhaar: data.aadhaar,
-      pan: data.pan,
-      photo: data.photo,
-      aadhaarDoc: data.aadhaarDoc,
-      panDoc: data.panDoc,
-      floorId: data.floorId,
-      roomId: data.roomId,
-      bedId: data.bedId,
-      roomNumber: bed?.roomNumber || existingTenant?.roomNumber,
-      bedNumber: bed?.bedNumber,
-      floorNumber: bed?.floorNumber,
-      checkInDate,
-      checkInDateTime: data.checkInDateTime,
-      checkOutDate: data.checkOutDate || null,
-      checkOutDateTime: data.checkOutDateTime || '',
-      checkInTime: data.checkInTime,
-      checkOutTime: data.checkOutTime,
-      stayType: 'Months',
-      duration: data.duration,
-      monthlyRent: data.monthlyRent,
-      dueDay: data.dueDay,
-      securityDeposit: data.securityDeposit,
-      advancePaid: data.advancePaid,
-      advancePaidDate: data.advancePaidDate || data.paymentDate,
-      totalAmount: data.totalAmount,
-      balanceAmount: data.balanceAmount,
-      paymentDate: data.paymentDate,
-      paymentType: data.paymentType,
-      paymentStatus: data.paymentStatus,
+  const buildTenantPayload = (data, bed) => ({
+    name: data.name,
+    customerName: data.name,
+    phone: data.phone,
+    address: data.address,
+    city: data.city,
+    state: data.state,
+    aadhaar: data.aadhaar,
+    pan: data.pan,
+    photo: data.photo,
+    aadhaarDoc: data.aadhaarDoc,
+    panDoc: data.panDoc,
+    bedId: data.bedId,
+    roomNumber: bed?.roomNumber,
+    monthlyRent: data.monthlyRent,
+    dueDay: data.dueDay || 1,
+    checkInDateTime: data.checkInDateTime,
+    advancePaid: data.advancePaid,
+    paymentType: data.paymentType,
+    paymentDate: data.paymentDate,
+  })
+
+  const handleAddTenant = async (data) => {
+    try {
+      const bed = beds.find((b) => b.id === data.bedId)
+      await monthlyPaymentsApi.create(buildTenantPayload(data, bed))
+      await reloadTenantData()
+      toast.success('Monthly tenant added successfully')
+      setDrawerOpen(false)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add tenant')
     }
   }
 
-  const syncCustomerAndBooking = (data, customerId, bookingId, isNew) => {
-    const bed = beds.find((b) => b.id === data.bedId)
-    const checkInDate = data.checkInDateTime?.split('T')[0] || data.checkInDate
-    const customerPayload = {
-      id: customerId,
-      name: data.name,
-      phone: data.phone,
-      email: `${data.name.replace(/\s+/g, '.').toLowerCase()}@email.com`,
-      address: data.address,
-      city: data.city,
-      state: data.state,
-      aadhaar: data.aadhaar,
-      pan: data.pan,
-      photo: data.photo,
-      aadhaarDoc: data.aadhaarDoc,
-      panDoc: data.panDoc,
-      status: 'checked-in',
-      stayType: 'Monthly',
-      roomId: data.roomId,
-      bedId: data.bedId,
-      roomNumber: bed?.roomNumber,
-      bedNumber: bed?.bedNumber,
-      floorNumber: bed?.floorNumber,
-      checkInDate,
-      checkInDateTime: data.checkInDateTime,
-      checkOutDate: data.checkOutDate || null,
-      checkOutDateTime: data.checkOutDateTime || '',
-      checkInTime: data.checkInTime,
-      exitDate: data.checkOutDate,
-      exitTime: data.checkOutTime,
-      monthlyRent: data.monthlyRent,
-      dueDay: data.dueDay,
-      securityDeposit: data.securityDeposit,
-    }
-
-    const bookingPayload = {
-      id: bookingId,
-      customerId,
-      customerName: data.name,
-      phone: data.phone,
-      bedId: data.bedId,
-      roomId: data.roomId,
-      roomNumber: bed?.roomNumber,
-      bedNumber: bed?.bedNumber,
-      floorNumber: bed?.floorNumber,
-      stayType: 'Months',
-      duration: data.duration,
-      bedCost: bed?.cost || data.monthlyRent,
-      totalAmount: data.totalAmount,
-      advancePaid: data.advancePaid,
-      balanceAmount: data.balanceAmount,
-      paymentType: data.paymentType,
-      paymentStatus: data.paymentStatus,
-      paymentDate: data.paymentDate,
-      status: 'active',
-      checkInDate,
-      checkInDateTime: data.checkInDateTime,
-      checkOutDateTime: data.checkOutDateTime || '',
-      createdAt: checkInDate,
-      payments: data.advancePaid > 0
-        ? [{ amount: data.advancePaid, date: data.paymentDate, type: data.paymentType, status: data.paymentStatus }]
-        : [],
-    }
-
-    if (isNew) {
-      dispatch(addCustomer(customerPayload))
-      dispatch(addBooking(bookingPayload))
-      if (bed) dispatch(updateBed({ ...bed, status: 'occupied', customerId }))
-    } else {
-      dispatch(updateCustomer(customerPayload))
-      dispatch(updateBooking(bookingPayload))
-    }
-  }
-
-  const handleAddTenant = (data) => {
-    const customerId = `cust-${Date.now()}`
-    const tenantId = `mp-${Date.now()}`
-    syncCustomerAndBooking(data, customerId, `booking-${Date.now()}`, true)
-    dispatch(addTenant({
-      id: tenantId,
-      customerId,
-      ...buildTenantPayload(data),
-    }))
-    toast.success('Monthly tenant added successfully')
-    setDrawerOpen(false)
-  }
-
-  const handleEditTenant = (data) => {
+  const handleEditTenant = async (data) => {
     if (!editTenant) return
-    const customerId = editTenant.customerId || `cust-${Date.now()}`
-    const booking = bookings.find((b) => b.customerId === customerId)
-    syncCustomerAndBooking(data, customerId, booking?.id || `booking-${Date.now()}`, !editTenant.customerId)
-
-    dispatch(updateTenant({
-      tenantId: editTenant.id,
-      customerId,
-      ...buildTenantPayload(data, editTenant),
-    }))
-    toast.success('Tenant updated successfully')
-    setEditTenant(null)
+    try {
+      const bed = beds.find((b) => b.id === data.bedId)
+      await monthlyPaymentsApi.update(editTenant.id, {
+        ...buildTenantPayload(data, bed),
+        customerName: data.name,
+        roomNumber: bed?.roomNumber || editTenant.roomNumber,
+      })
+      await reloadTenantData()
+      toast.success('Tenant updated successfully')
+      setEditTenant(null)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update tenant')
+    }
   }
 
-  const handleMarkPaid = (payload) => {
-    dispatch(markTenantPaid(payload))
-    toast.success(`Payment recorded for ${markPaidTenant.customerName}`)
-    setMarkPaidTenant(null)
+  const handleMarkPaid = async (payload) => {
+    try {
+      await monthlyPaymentsApi.markPaid(payload.tenantId, {
+        month: payload.month,
+        amount: payload.amount,
+        paymentMode: payload.paymentMode,
+        paidDate: payload.paidDate,
+      })
+      await reloadTenantData()
+      toast.success(`Payment recorded for ${markPaidTenant.customerName}`)
+      setMarkPaidTenant(null)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to record payment')
+    }
   }
 
   const openAdd = () => { setEditTenant(null); setDrawerOpen(true) }
   const openEdit = (tenant) => { setDrawerOpen(false); setViewTenant(null); setEditTenant(tenant) }
   const openView = (tenant) => { setEditTenant(null); setViewTenant(tenant) }
 
-  const handleDelete = (tenant) => {
-    if (tenant.customerId) {
-      const booking = bookings.find((b) => b.customerId === tenant.customerId)
-      const bed = beds.find((b) => b.id === tenant.bedId || b.id === booking?.bedId)
-      if (bed) dispatch(updateBed({ ...bed, status: 'vacant', customerId: null }))
-      if (booking) dispatch(deleteBooking(booking.id))
-      dispatch(checkoutCustomer(tenant.customerId))
+  const handleDelete = async (tenant) => {
+    try {
+      await monthlyPaymentsApi.remove(tenant.id)
+      await reloadTenantData()
+      toast.success(`Tenant ${tenant.customerName} removed`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete tenant')
     }
-    dispatch(deleteTenant(tenant.id))
-    toast.success(`Tenant ${tenant.customerName} removed`)
   }
 
   const viewCustomer = viewTenant ? customers.find((c) => c.id === viewTenant.customerId) : null
-  const viewBooking = viewTenant ? bookings.find((b) => b.customerId === viewTenant.customerId) : null
   const viewBed = viewTenant ? beds.find((b) => b.id === (viewTenant.bedId || viewCustomer?.bedId)) : null
   const viewCustomerMerged = viewTenant ? {
     ...(viewCustomer || {}),
@@ -252,8 +173,8 @@ const MonthlyPayments = () => {
     photo: viewTenant.photo || viewCustomer?.photo,
     aadhaarDoc: viewTenant.aadhaarDoc || viewCustomer?.aadhaarDoc,
     panDoc: viewTenant.panDoc || viewCustomer?.panDoc,
-    checkInDateTime: viewTenant.checkInDateTime || viewBooking?.checkInDateTime || viewCustomer?.checkInDateTime,
-    checkOutDateTime: viewTenant.checkOutDateTime || viewBooking?.checkOutDateTime || '',
+    checkInDateTime: viewTenant.checkInDateTime || viewCustomer?.checkInDateTime,
+    checkOutDateTime: viewTenant.checkOutDateTime || viewCustomer?.checkOutDateTime || '',
     stayType: 'Monthly',
   } : null
 
@@ -340,7 +261,6 @@ const MonthlyPayments = () => {
             beds={beds}
             tenant={editTenant}
             customer={editCustomer}
-            booking={editBooking}
             editMode
             onSubmit={handleEditTenant}
             onCancel={() => setEditTenant(null)}
@@ -371,7 +291,7 @@ const MonthlyPayments = () => {
         {viewCustomerMerged && (
           <CustomerDetailCards
             customer={viewCustomerMerged}
-            booking={viewBooking}
+            booking={null}
             bed={viewBed}
             monthlyTenant={viewTenant}
           />

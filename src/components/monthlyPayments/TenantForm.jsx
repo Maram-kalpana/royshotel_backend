@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
 import { formatCurrency } from '../../utils/helpers'
-import { fieldSx, primaryButtonSx, drawerFormStackSx } from '../../utils/layout'
+import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx } from '../../utils/layout'
 import DateTimeSplitField, { combineDateAndTime, splitDateTime } from '../DateTimeSplitField'
 import DatePickerField from '../DatePickerField'
 import FileUpload from '../FileUpload'
@@ -20,8 +20,8 @@ const emptyDefaults = () => {
   return {
     name: '', phone: '', address: '', city: '', state: '',
     aadhaar: '', pan: '', floorId: '', roomId: '', bedId: '',
-    duration: 1, advancePaid: 0,
-    monthlyRent: 0, dueDay: 1,
+    advancePaid: '',
+    monthlyRent: '', dueDay: '',
     checkInDate: now.format('YYYY-MM-DD'),
     checkInTime: now.format('HH:mm'),
     checkOutDate: '',
@@ -54,10 +54,9 @@ export const buildTenantFormDefaults = (tenant, customer, booking, beds = [], fl
     floorId: tenant.floorId || floor?.id || bed?.floorId || '',
     roomId: tenant.roomId || bed?.roomId || customer?.roomId || booking?.roomId || '',
     bedId,
-    duration: tenant.duration || booking?.duration || 1,
-    advancePaid: tenant.advancePaid ?? booking?.advancePaid ?? 0,
-    totalAmount: tenant.totalAmount ?? booking?.totalAmount ?? tenant.monthlyRent ?? 0,
-    monthlyRent: tenant.monthlyRent ?? 0,
+    advancePaid: tenant.advancePaid ?? booking?.advancePaid ?? '',
+    totalAmount: tenant.totalAmount ?? booking?.totalAmount ?? tenant.monthlyRent ?? '',
+    monthlyRent: tenant.monthlyRent ?? '',
     dueDay: tenant.dueDay ?? 1,
     checkInDate: checkIn.date || dayjs().format('YYYY-MM-DD'),
     checkInTime: checkIn.time || dayjs().format('HH:mm'),
@@ -91,10 +90,9 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
   const selectedFloor = watch('floorId')
   const selectedRoom = watch('roomId')
   const selectedBed = watch('bedId')
-  const duration = watch('duration')
-  const advancePaid = watch('advancePaid')
+  const advancePaid = Number(watch('advancePaid')) || 0
   const monthlyRent = Number(watch('monthlyRent')) || 0
-  const totalAmount = monthlyRent * (duration || 1)
+  const totalAmount = monthlyRent
   const checkInDate = watch('checkInDate')
   const checkInTime = watch('checkInTime')
   const checkOutDate = watch('checkOutDate')
@@ -137,30 +135,38 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
   useEffect(() => { if (!editMode) { setValue('roomId', ''); setValue('bedId', '') } }, [selectedFloor, setValue, editMode])
   useEffect(() => { if (!editMode) setValue('bedId', '') }, [selectedRoom, setValue, editMode])
   useEffect(() => {
-    if (monthlyRent > 0) setValue('totalAmount', monthlyRent * (duration || 1))
-  }, [monthlyRent, duration, setValue])
+    if (monthlyRent > 0) setValue('totalAmount', monthlyRent)
+  }, [monthlyRent, setValue])
 
   const handleFormSubmit = (data) => {
+    const advance = Number(data.advancePaid) || 0
+    if (advance > 0 && !data.paymentDate) {
+      return
+    }
+
     const checkInDateTime = combineDateAndTime(data.checkInDate, data.checkInTime)
     const checkOutDateTime = data.checkOutDate
       ? combineDateAndTime(data.checkOutDate, data.checkOutTime || '12:00')
       : ''
-    const computedTotal = monthlyRent * (data.duration || 1)
-    const computedBalance = Math.max(0, computedTotal - (data.advancePaid || 0))
+    const rent = Number(data.monthlyRent) || 0
+    
+    const computedTotal = rent
+    const computedBalance = Math.max(0, computedTotal - advance)
 
     onSubmit({
       ...data,
       stayType: 'Months',
+      duration: 1,
       checkInDateTime,
       checkOutDateTime,
-      bedCost: selectedBedData?.cost || monthlyRent,
+      bedCost: selectedBedData?.cost || rent,
       totalAmount: computedTotal,
       balanceAmount: computedBalance,
-      monthlyRent: Number(data.monthlyRent),
+      monthlyRent: rent,
+      advancePaid: advance,
       dueDay: Number(data.dueDay) || 1,
-      advancePaidDate: data.paymentDate,
       paymentDate: data.paymentDate,
-      securityDeposit: data.advancePaid || 0,
+      securityDeposit: advance,
       photoFile,
       aadhaarFile,
       panFile,
@@ -206,9 +212,6 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
           </TextField>
         )} />
         <TextField label="Stay Type" value="Monthly" InputProps={{ readOnly: true }} sx={fieldSx} fullWidth />
-        <Controller name="duration" control={control} rules={{ required: true, min: 1 }} render={({ field }) => (
-          <TextField {...field} type="number" label="Duration (Months)" error={!!errors.duration} sx={fieldSx} fullWidth />
-        )} />
         <DateTimeSplitField
           dateLabel="Check-In Date"
           timeLabel="Check-In Time"
@@ -233,12 +236,32 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
 
       <Section title="Monthly Rent & Payment">
         <Controller name="monthlyRent" control={control} rules={{ required: 'Monthly rent is required', min: { value: 1, message: 'Enter valid rent' } }} render={({ field }) => (
-          <TextField {...field} type="number" label="Monthly Rent (₹)" onChange={(e) => field.onChange(Number(e.target.value))} error={!!errors.monthlyRent} helperText={errors.monthlyRent?.message} sx={fieldSx} fullWidth />
+          <TextField
+            {...field}
+            type="number"
+            label="Monthly Rent (₹)"
+            value={field.value}
+            onChange={(e) => field.onChange(e.target.value)}
+            error={!!errors.monthlyRent}
+            helperText={errors.monthlyRent?.message}
+            sx={amountFieldSx}
+            fullWidth
+            inputProps={{ min: 0 }}
+          />
         )} />
-        <Controller name="advancePaid" control={control} rules={{ min: 0 }} render={({ field }) => (
-          <TextField {...field} type="number" label="Advance (₹)" onChange={(e) => field.onChange(Number(e.target.value))} sx={fieldSx} fullWidth />
+        <Controller name="advancePaid" control={control} render={({ field }) => (
+          <TextField
+            {...field}
+            type="number"
+            label="Advance (₹)"
+            value={field.value}
+            onChange={(e) => field.onChange(e.target.value)}
+            sx={amountFieldSx}
+            fullWidth
+            inputProps={{ min: 0 }}
+          />
         )} />
-        <Controller name="paymentDate" control={control} rules={{ required: 'Advance paid date is required' }} render={({ field: { value, onChange } }) => (
+        <Controller name="paymentDate" control={control} render={({ field: { value, onChange } }) => (
           <DatePickerField label="Advance Paid Date" value={value} onChange={onChange} sx={fieldSx} />
         )} />
         <Controller name="paymentType" control={control} rules={{ required: 'Payment type is required' }} render={({ field }) => (

@@ -2,8 +2,9 @@ import { useMemo } from 'react'
 import { TextField, MenuItem, Typography, Box } from '@mui/material'
 import DatePickerField from './DatePickerField'
 import DateTimeSplitField, { splitDateTime } from './DateTimeSplitField'
-import { formatCurrency } from '../utils/helpers'
-import { fieldSx, drawerFormStackSx } from '../utils/layout'
+import PaymentStatusBadge from './PaymentStatusBadge'
+import { formatCurrency, getPaymentStatus } from '../utils/helpers'
+import { fieldSx, drawerFormStackSx, amountFieldSx } from '../utils/layout'
 
 const paymentTypes = ['Cash', 'UPI', 'Card', 'Bank Transfer']
 const rowSx = { display: 'flex', gap: 1.5, width: '100%', flexWrap: { xs: 'wrap', sm: 'nowrap' } }
@@ -51,7 +52,8 @@ const BookingEditForm = ({
   )
 
   const checkIn = splitDateTime(booking.checkInDateTime || booking.checkInDate || '')
-  const checkOut = splitDateTime(booking.checkOutDateTime || '')
+  const balanceAmount = Math.max(0, (Number(form.totalAmount) || 0) - (Number(form.advancePaid) || 0))
+  const paymentStatus = form.paymentStatus || getPaymentStatus(balanceAmount)
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -84,10 +86,14 @@ const BookingEditForm = ({
           <TextField label="Check-In Date" value={checkIn.date || '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
           <TextField label="Check-In Time" value={checkIn.time || '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
         </Box>
-        <Box sx={rowSx}>
-          <TextField label="Check-Out Date" value={checkOut.date || '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField label="Check-Out Time" value={checkOut.time || '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-        </Box>
+        <DateTimeSplitField
+          dateLabel="Check-Out Date"
+          timeLabel="Check-Out Time"
+          dateValue={form.checkOutDate}
+          timeValue={form.checkOutTime}
+          onDateChange={(v) => onChange({ checkOutDate: v })}
+          onTimeChange={(v) => onChange({ checkOutTime: v })}
+        />
       </Section>
 
       <Section title="Payment Information">
@@ -98,7 +104,7 @@ const BookingEditForm = ({
             label="Total Amount"
             value={form.totalAmount}
             onChange={(e) => onChange({ totalAmount: e.target.value })}
-            sx={{ ...fieldSx, flex: 1 }}
+            sx={{ ...amountFieldSx, flex: 1 }}
           />
         </Box>
 
@@ -126,25 +132,34 @@ const BookingEditForm = ({
           <TextField
             fullWidth
             label="Balance"
-            value={formatCurrency(Math.max(0, (Number(form.totalAmount) || 0) - (Number(form.advancePaid) || 0)))}
+            value={formatCurrency(balanceAmount)}
             InputProps={{ readOnly: true }}
-            sx={{ ...thirdFieldSx, '& input': { fontWeight: 600 } }}
+            sx={{ ...thirdFieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#c2410c' : '#15803d' } }}
           />
-          <TextField select fullWidth label="Balance Payment Type" value={form.balancePaymentType} onChange={(e) => onChange({ balancePaymentType: e.target.value })} sx={thirdFieldSx}>
-            {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-          </TextField>
-          <DatePickerField
-            label="Balance Payment Date"
-            value={form.balancePaymentDate}
-            onChange={(v) => onChange({ balancePaymentDate: v })}
-            sx={thirdFieldSx}
-          />
+          {balanceAmount > 0 && (
+            <>
+              <TextField select fullWidth label="Balance Payment Type" value={form.balancePaymentType} onChange={(e) => onChange({ balancePaymentType: e.target.value })} sx={thirdFieldSx}>
+                {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
+              <DatePickerField
+                label="Balance Payment Date"
+                value={form.balancePaymentDate}
+                onChange={(v) => onChange({
+                  balancePaymentDate: v,
+                  paymentStatus: v ? 'completed' : 'pending',
+                })}
+                sx={thirdFieldSx}
+              />
+            </>
+          )}
         </Box>
 
-        <TextField select fullWidth label="Payment Status" value={form.paymentStatus} onChange={(e) => onChange({ paymentStatus: e.target.value })} sx={fieldSx}>
-          <MenuItem value="pending">Pending</MenuItem>
-          <MenuItem value="completed">Completed</MenuItem>
-        </TextField>
+        {balanceAmount > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.875rem' }}>Payment Status:</Typography>
+            <PaymentStatusBadge status={paymentStatus} balanceAmount={balanceAmount} />
+          </Box>
+        )}
       </Section>
 
       <Section title="Extend Stay">

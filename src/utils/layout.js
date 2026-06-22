@@ -12,6 +12,14 @@ export const DRAWER_VARIANTS = {
   income: 500,
 }
 
+export const noSpinnerSx = {
+  '& input[type=number]': { MozAppearance: 'textfield' },
+  '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button': {
+    WebkitAppearance: 'none',
+    margin: 0,
+  },
+}
+
 export const fieldSx = {
   width: '100%',
   '& .MuiInputBase-root': {
@@ -24,6 +32,7 @@ export const fieldSx = {
   '& .MuiFormLabel-root': {
     fontSize: '0.875rem',
   },
+  ...noSpinnerSx,
 }
 
 export const filterFieldSx = {
@@ -39,6 +48,10 @@ export const primaryButtonSx = {
   px: 3,
   whiteSpace: 'nowrap',
   '&:hover': { bgcolor: '#0a1a3d' },
+}
+
+export const amountFieldSx = {
+  ...fieldSx,
 }
 
 export const getSidebarOffset = (collapsed) =>

@@ -14,11 +14,7 @@ const mapRoomsToFrontend = (rooms) => rooms.map((r) => ({
   roomType: r.roomType || r.bedType,
   bedType: r.bedType || r.roomType,
   acType: r.acType,
-  totalBeds: r.totalBeds || 1,
-  occupiedBeds: r.occupiedBeds || 0,
-  vacantBeds: r.vacantBeds || 0,
   costPerBed: r.costOfBed,
-  status: r.status || 'available',
 }))
 
 const buildFloorsFromRooms = (rooms) => {

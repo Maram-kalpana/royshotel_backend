@@ -1,6 +1,7 @@
 import { query, getConnection } from '../config/db.js'
 import { generateId } from '../utils/helpers.js'
-import { updateCustomer } from './customerService.js'
+
+const toDateTimeOrNull = (value) => (value && value !== '' ? value : null)
 
 const mapBooking = (row, payments = [], shifts = []) => ({
   id: row.id,
@@ -40,6 +41,7 @@ export const listBookings = async ({ status, search, checkInDate, paymentStatus,
   let sql = 'SELECT * FROM bookings WHERE 1=1'
   const params = []
   if (role === 'super_admin') sql += ' AND status IN ("active","reserved","booked")'
+  sql += ' AND (stay_type IS NULL OR stay_type NOT IN ("Months", "Monthly"))'
   if (status) { sql += ' AND status = ?'; params.push(status) }
   if (checkInDate) { sql += ' AND check_in_date = ?'; params.push(checkInDate) }
   if (paymentStatus) { sql += ' AND payment_status = ?'; params.push(paymentStatus) }
@@ -55,7 +57,17 @@ export const listBookings = async ({ status, search, checkInDate, paymentStatus,
     const [shifts] = await query('SELECT * FROM booking_shifts WHERE booking_id = ?', [row.id])
     return mapBooking(row, payments.map((p) => ({
       amount: Number(p.amount), date: p.payment_date, type: p.payment_type, status: p.status,
-    })), shifts)
+    })), shifts.map((s) => ({
+      id: s.id,
+      shiftType: s.shift_type,
+      oldRoomNumber: s.old_room_number,
+      oldBedNumber: s.old_bed_number,
+      oldFloorNumber: s.old_floor_number,
+      newRoomNumber: s.new_room_number,
+      newBedNumber: s.new_bed_number,
+      newFloorNumber: s.new_floor_number,
+      shiftDate: s.shift_date,
+    })))
   }))
 }
 
@@ -85,7 +97,7 @@ export const createBooking = async (data) => {
         customerId, data.name, data.phone, data.email || null, data.address, data.city, data.state,
         data.aadhaar, data.pan, data.photo || null, data.aadhaarDoc || null, data.panDoc || null,
         'checked-in', bed.room_id, bed.id, bed.room_number, bed.bed_number, bed.floor_number,
-        checkInDate, data.checkInDateTime, data.stayType, 0, 0, null, checkInDate,
+        checkInDate, data.checkInDateTime, data.stayType, 0, Number(data.monthlyRent || 0), data.dueDay || null, checkInDate,
       ],
     )
 
@@ -146,40 +158,121 @@ export const updateBooking = async (id, data) => {
     const booking = bookings[0]
     if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 })
 
-    const balance = Math.max(0, Number(data.totalAmount) - Number(data.advancePaid || 0))
-    const isCheckout = Boolean(data.checkOutDateTime) && ['checked-out', 'completed'].includes(data.status)
+    const balancePaymentAmount = Number(data.balancePaymentAmount || 0)
+    const balance = data.balanceAmount != null
+      ? Number(data.balanceAmount)
+      : Math.max(0, Number(data.totalAmount) - Number(data.advancePaid || 0))
+    const isCheckout = Boolean(toDateTimeOrNull(data.checkOutDateTime))
+      && ['checked-out', 'completed'].includes(data.status || booking.status)
+
+    let bedId = booking.bed_id
+    let roomId = booking.room_id
+    let roomNumber = booking.room_number
+    let bedNumber = booking.bed_number
+    let floorNumber = booking.floor_number
+
+    if (data.newBedId && data.newBedId !== booking.bed_id) {
+      const [newBeds] = await conn.execute('SELECT * FROM beds WHERE id = ? FOR UPDATE', [data.newBedId])
+      const newBed = newBeds[0]
+      if (!newBed || newBed.status !== 'vacant') {
+        throw Object.assign(new Error('Selected bed is not available'), { status: 400 })
+      }
+
+      await conn.execute('UPDATE beds SET status="vacant", customer_id=NULL WHERE id=?', [booking.bed_id])
+      await conn.execute('UPDATE beds SET status="occupied", customer_id=? WHERE id=?', [booking.customer_id, newBed.id])
+
+      bedId = newBed.id
+      roomId = newBed.room_id
+      roomNumber = newBed.room_number
+      bedNumber = newBed.bed_number
+      floorNumber = newBed.floor_number
+
+      await conn.execute(
+        `INSERT INTO booking_shifts (id, booking_id, shift_type, old_room_number, old_bed_number, old_floor_number,
+          new_room_number, new_bed_number, new_floor_number, shift_date)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        [
+          generateId('shift'), id, 'Room Shift',
+          booking.room_number, booking.bed_number, booking.floor_number,
+          newBed.room_number, newBed.bed_number, newBed.floor_number,
+          data.shiftDate || new Date().toISOString().split('T')[0],
+        ],
+      )
+    }
 
     await conn.execute(
-      `UPDATE bookings SET customer_name=?, phone=?, total_amount=?, advance_paid=?, balance_amount=?,
-        payment_type=?, payment_status=?, check_out_datetime=?, extended_upto=?, extended_amount=?,
-        extended_status=?, extended_payment_type=?, extended_payment_date=?, status=?
+      `UPDATE bookings SET customer_name=?, phone=?, bed_id=?, room_id=?, room_number=?, bed_number=?, floor_number=?,
+        total_amount=?, advance_paid=?, balance_amount=?, payment_type=?, payment_status=?, check_out_datetime=?,
+        extended_upto=?, extended_amount=?, extended_status=?, extended_payment_type=?, extended_payment_date=?, status=?
        WHERE id=?`,
       [
-        data.customerName, data.phone, data.totalAmount, data.advancePaid, balance,
-        data.paymentType, data.paymentStatus, data.checkOutDateTime, data.extendedUpto,
-        data.extendedAmount || 0, data.extendedStatus, data.extendedPaymentType,
-        data.extendedPaymentDate, data.status || booking.status, id,
+        data.customerName || data.name,
+        data.phone,
+        bedId,
+        roomId,
+        roomNumber,
+        bedNumber,
+        floorNumber,
+        data.totalAmount,
+        data.advancePaid,
+        balance,
+        data.paymentType,
+        data.paymentStatus,
+        toDateTimeOrNull(data.checkOutDateTime),
+        toDateTimeOrNull(data.extendedUpto),
+        data.extendedAmount || 0,
+        data.extendedStatus,
+        data.extendedPaymentType,
+        toDateTimeOrNull(data.extendedPaymentDate),
+        data.status || booking.status,
+        id,
       ],
     )
 
-    if (data.balancePaymentDate && balance > 0) {
+    if (data.balancePaymentDate && balancePaymentAmount > 0) {
       await conn.execute(
         'INSERT INTO booking_payments (id, booking_id, amount, payment_date, payment_type, status) VALUES (?,?,?,?,?,?)',
         [
-          generateId('pay'), id, balance, data.balancePaymentDate,
+          generateId('pay'), id, balancePaymentAmount, data.balancePaymentDate,
           data.balancePaymentType || data.paymentType || 'Cash',
           data.paymentStatus === 'completed' ? 'completed' : 'pending',
         ],
       )
     }
 
-    if (isCheckout && booking.bed_id) {
-      await conn.execute('UPDATE beds SET status="vacant", customer_id=NULL WHERE id=?', [booking.bed_id])
-      await conn.execute('UPDATE customers SET status="checked-out" WHERE id=?', [booking.customer_id])
+    if (isCheckout && bedId) {
+      await conn.execute('UPDATE beds SET status="vacant", customer_id=NULL WHERE id=?', [bedId])
+      await conn.execute(
+        'UPDATE customers SET status="checked-out", check_out_date=?, check_out_datetime=? WHERE id=?',
+        [
+          (data.checkOutDateTime || '').split('T')[0] || new Date().toISOString().split('T')[0],
+          toDateTimeOrNull(data.checkOutDateTime),
+          booking.customer_id,
+        ],
+      )
     }
 
-    if (data.customerId && data.name) {
-      await updateCustomer(data.customerId, data)
+    if (data.customerId && (data.name || data.customerName)) {
+      await conn.execute(
+        'UPDATE customers SET name=?, phone=?, address=?, city=?, state=?, aadhaar=?, pan=? WHERE id=?',
+        [
+          data.name || data.customerName,
+          data.phone,
+          data.address ?? null,
+          data.city ?? null,
+          data.state ?? null,
+          data.aadhaar ?? null,
+          data.pan ?? null,
+          data.customerId,
+        ],
+      )
+
+      if (data.newBedId && data.newBedId !== booking.bed_id) {
+        await conn.execute(
+          'UPDATE customers SET room_id=?, bed_id=?, room_number=?, bed_number=?, floor_number=? WHERE id=?',
+          [roomId, bedId, roomNumber, bedNumber, floorNumber, data.customerId],
+        )
+      }
     }
 
     await conn.commit()

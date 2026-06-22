@@ -28,6 +28,13 @@ const mapBed = (row) => ({
   bedType: row.bed_type,
 })
 
+const mapBedForRoom = (row) => ({
+  id: row.id,
+  bedNumber: row.bed_number,
+  bedType: row.bed_type,
+  cost: Number(row.cost),
+})
+
 const normalizeBeds = (data) => {
   if (Array.isArray(data.beds) && data.beds.length > 0) {
     return data.beds.map((bed, index) => ({
@@ -52,25 +59,14 @@ const duplicateRoomError = (floorNumber, roomNumber) =>
   Object.assign(new Error(`Room ${roomNumber} already exists on Floor ${floorNumber}`), { status: 409 })
 
 export const listRooms = async ({ search, floorNumber } = {}) => {
-  let sql = `
-    SELECT r.*,
-      (SELECT COUNT(*) FROM beds b WHERE b.room_id = r.id) AS live_total_beds,
-      (SELECT COUNT(*) FROM beds b WHERE b.room_id = r.id AND b.status = 'occupied') AS occupied_beds,
-      (SELECT COUNT(*) FROM beds b WHERE b.room_id = r.id AND b.status = 'vacant') AS vacant_beds
-    FROM rooms r WHERE 1=1
-  `
+  let sql = 'SELECT r.* FROM rooms r WHERE 1=1'
   const params = []
   if (floorNumber) { sql += ' AND r.floor_number = ?'; params.push(floorNumber) }
   if (search) { sql += ' AND (r.room_number LIKE ? OR CAST(r.floor_number AS CHAR) LIKE ?)'; params.push(`%${search}%`, `%${search}%`) }
   sql += ' ORDER BY r.floor_number, r.room_number'
 
   const [rows] = await query(sql, params)
-  return rows.map((r) => ({
-    ...mapRoom({ ...r, total_beds: r.live_total_beds ?? r.total_beds }),
-    totalBeds: Number(r.live_total_beds ?? r.total_beds),
-    occupiedBeds: Number(r.occupied_beds),
-    vacantBeds: Number(r.vacant_beds),
-  }))
+  return rows.map(mapRoom)
 }
 
 export const listBeds = async ({ status, floorNumber, roomNumber } = {}) => {
@@ -191,10 +187,12 @@ export const updateRoom = async (id, data) => {
 
     for (const bed of beds) {
       if (bed.id) {
+        const existing = existingBeds.find((b) => b.id === bed.id)
+        const status = bed.status || existing?.status || 'vacant'
         await conn.execute(
           `UPDATE beds SET bed_number=?, bed_type=?, cost=?, status=?, room_number=?, floor_id=?, floor_number=?
            WHERE id=? AND room_id=?`,
-          [bed.bedNumber, bed.bedType, bed.cost, bed.status || 'vacant', roomNumber, floorId, floorNumber, bed.id, id],
+          [bed.bedNumber, bed.bedType, bed.cost, status, roomNumber, floorId, floorNumber, bed.id, id],
         )
       } else {
         const bedId = generateId('bed')
@@ -226,12 +224,9 @@ export const getRoomById = async (id) => {
   const [rooms] = await query('SELECT * FROM rooms WHERE id = ?', [id])
   if (!rooms[0]) return null
   const [bedRows] = await query('SELECT * FROM beds WHERE room_id = ? ORDER BY bed_number', [id])
-  const beds = bedRows.map(mapBed)
+  const beds = bedRows.map(mapBedForRoom)
   return {
     ...mapRoom({ ...rooms[0], total_beds: beds.length }),
-    totalBeds: beds.length,
-    occupiedBeds: beds.filter((b) => b.status === 'occupied').length,
-    vacantBeds: beds.filter((b) => b.status === 'vacant').length,
     beds,
   }
 }

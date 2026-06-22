@@ -13,6 +13,13 @@ import { expensesApi } from '../services/endpoints'
 import { formatCurrency, formatDate } from '../utils/helpers'
 import { filterFieldSx, fieldSx, primaryButtonSx } from '../utils/layout'
 
+const compactFilterSx = {
+  ...filterFieldSx,
+  flex: { xs: '1 1 100%', md: '0 0 200px' },
+  minWidth: { xs: '100%', md: 200 },
+  maxWidth: { md: 200 },
+}
+
 const TYPE_LABELS = {
   maintenance: 'Maintenance',
   utilities: 'Utilities',
@@ -191,12 +198,20 @@ const Expenses = () => {
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-end gap-3 mb-1">
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: { xs: 'wrap', md: 'nowrap' },
+            alignItems: 'flex-end',
+            gap: 2,
+            mb: 1,
+          }}
+        >
           <DatePickerField
             label="Date"
             value={filterDate}
             onChange={setFilterDate}
-            slotProps={{ textField: { size: 'small', sx: { ...filterFieldSx, minWidth: { xs: '100%', md: 160 }, maxWidth: { md: 180 } } } }}
+            slotProps={{ textField: { size: 'small', sx: compactFilterSx } }}
           />
 
           <TextField
@@ -205,7 +220,7 @@ const Expenses = () => {
             value={searchDescription}
             onChange={(e) => setSearchDescription(e.target.value)}
             size="small"
-            sx={{ ...filterFieldSx, minWidth: { xs: '100%', md: 180 }, maxWidth: { md: 220 } }}
+            sx={compactFilterSx}
           />
 
           <Box
@@ -219,7 +234,7 @@ const Expenses = () => {
               borderRadius: 1,
               border: '1px solid #e2e8f0',
               bgcolor: '#f8fafc',
-              minWidth: { xs: '100%', md: 160 },
+              ...compactFilterSx,
             }}
           >
             <Typography variant="caption" sx={{ color: '#64748b', lineHeight: 1.2 }}>
@@ -229,7 +244,7 @@ const Expenses = () => {
               {formatCurrency(totalAmount)}
             </Typography>
           </Box>
-        </div>
+        </Box>
 
         <MuiDataGrid
           rows={tableRows}

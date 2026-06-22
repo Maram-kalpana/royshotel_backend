@@ -1,66 +1,125 @@
 import { query } from '../config/db.js'
 
-export const getAccountsSummary = async ({ view = 'day', date } = {}) => {
-  const filterDate = date || new Date().toISOString().split('T')[0]
+const normalizeType = (type) => (type || 'Cash').toLowerCase()
 
-  // Revenue from booking payments + advance
-  const bookingRevenueSql = view === 'month'
-    ? `SELECT DATE_FORMAT(payment_date, '%Y-%m') AS period,
-              payment_type AS type, SUM(amount) AS total
-       FROM booking_payments
-       WHERE DATE_FORMAT(payment_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
-       GROUP BY period, payment_type`
-    : `SELECT DATE(payment_date) AS period,
-              payment_type AS type, SUM(amount) AS total
-       FROM booking_payments
-       WHERE DATE(payment_date) = ?
-       GROUP BY period, payment_type`
+const addToBucket = (bucket, type, amount) => {
+  const t = normalizeType(type)
+  const amt = Number(amount) || 0
+  if (t.includes('cash')) bucket.cash += amt
+  else if (t.includes('upi')) bucket.upi += amt
+  else if (t.includes('card')) bucket.card += amt
+  else bucket.bank += amt
+  bucket.total += amt
+}
 
-  const [bookingPayments] = await query(bookingRevenueSql, [filterDate])
+const aggregateRows = (rows) => {
+  const map = { cash: 0, upi: 0, card: 0, bank: 0, total: 0 }
+  rows.forEach(({ type, total }) => addToBucket(map, type, total))
+  return map
+}
 
-  const monthlyRevenueSql = view === 'month'
-    ? `SELECT DATE_FORMAT(payment_date, '%Y-%m') AS period,
-              COALESCE(payment_mode, 'Cash') AS type, SUM(amount_paid) AS total
-       FROM monthly_payments
-       WHERE status = 'paid' AND DATE_FORMAT(payment_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
-       GROUP BY period, type`
-    : `SELECT DATE(payment_date) AS period,
-              COALESCE(payment_mode, 'Cash') AS type, SUM(amount_paid) AS total
-       FROM monthly_payments
-       WHERE status = 'paid' AND DATE(payment_date) = ?
-       GROUP BY period, type`
+const mergePeriodRows = (bookingPayments, monthlyPayments, extendedPayments = []) => {
+  const periods = new Map()
 
-  const [monthlyPayments] = await query(monthlyRevenueSql, [filterDate])
-
-  const aggregate = (rows) => {
-    const map = { cash: 0, upi: 0, card: 0, bank: 0, total: 0 }
-    rows.forEach(({ type, total }) => {
-      const t = (type || 'Cash').toLowerCase()
-      const amt = Number(total)
-      if (t.includes('cash')) map.cash += amt
-      else if (t.includes('upi')) map.upi += amt
-      else if (t.includes('card')) map.card += amt
-      else map.bank += amt
-      map.total += amt
-    })
-    return map
+  const ensure = (period) => {
+    const key = String(period)
+    if (!periods.has(key)) {
+      periods.set(key, { period: key, cash: 0, upi: 0, card: 0, bank: 0, total: 0 })
+    }
+    return periods.get(key)
   }
 
-  const bookingAgg = aggregate(bookingPayments)
-  const monthlyAgg = aggregate(monthlyPayments)
+  ;[...bookingPayments, ...monthlyPayments, ...extendedPayments].forEach(({ period, type, total }) => {
+    if (!period) return
+    const row = ensure(period)
+    addToBucket(row, type, total)
+  })
 
-  const totalRevenue = bookingAgg.total + monthlyAgg.total
-  const [[expenseRow]] = await query(
-    view === 'month'
+  return [...periods.values()]
+    .sort((a, b) => String(b.period).localeCompare(String(a.period)))
+    .map((row, i) => ({ id: row.period || `row-${i}`, ...row }))
+}
+
+export const getAccountsSummary = async ({ view = 'day', date } = {}) => {
+  const periodExpr = view === 'month'
+    ? "DATE_FORMAT(payment_date, '%Y-%m')"
+    : 'DATE(payment_date)'
+
+  const bookingRevenueSql = date
+    ? (view === 'month'
+      ? `SELECT DATE_FORMAT(payment_date, '%Y-%m') AS period, payment_type AS type, SUM(amount) AS total
+         FROM booking_payments WHERE DATE_FORMAT(payment_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
+         GROUP BY period, payment_type`
+      : `SELECT DATE(payment_date) AS period, payment_type AS type, SUM(amount) AS total
+         FROM booking_payments WHERE DATE(payment_date) = ?
+         GROUP BY period, payment_type`)
+    : `SELECT ${periodExpr} AS period, payment_type AS type, SUM(amount) AS total
+       FROM booking_payments WHERE payment_date IS NOT NULL
+       GROUP BY period, payment_type`
+
+  const monthlyRevenueSql = date
+    ? (view === 'month'
+      ? `SELECT DATE_FORMAT(payment_date, '%Y-%m') AS period, COALESCE(payment_mode, 'Cash') AS type, SUM(amount_paid) AS total
+         FROM monthly_payments WHERE status = 'paid' AND DATE_FORMAT(payment_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
+         GROUP BY period, type`
+      : `SELECT DATE(payment_date) AS period, COALESCE(payment_mode, 'Cash') AS type, SUM(amount_paid) AS total
+         FROM monthly_payments WHERE status = 'paid' AND DATE(payment_date) = ?
+         GROUP BY period, type`)
+    : `SELECT ${view === 'month' ? "DATE_FORMAT(payment_date, '%Y-%m')" : 'DATE(payment_date)'} AS period,
+              COALESCE(payment_mode, 'Cash') AS type, SUM(amount_paid) AS total
+       FROM monthly_payments WHERE status = 'paid' AND payment_date IS NOT NULL
+       GROUP BY period, type`
+
+  const extendedRevenueSql = date
+    ? (view === 'month'
+      ? `SELECT DATE_FORMAT(extended_payment_date, '%Y-%m') AS period,
+                COALESCE(extended_payment_type, 'Cash') AS type, SUM(extended_amount) AS total
+         FROM bookings WHERE extended_amount > 0 AND extended_payment_date IS NOT NULL
+           AND DATE_FORMAT(extended_payment_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
+         GROUP BY period, type`
+      : `SELECT DATE(extended_payment_date) AS period,
+                COALESCE(extended_payment_type, 'Cash') AS type, SUM(extended_amount) AS total
+         FROM bookings WHERE extended_amount > 0 AND extended_payment_date IS NOT NULL
+           AND DATE(extended_payment_date) = ?
+         GROUP BY period, type`)
+    : `SELECT ${view === 'month' ? "DATE_FORMAT(extended_payment_date, '%Y-%m')" : 'DATE(extended_payment_date)'} AS period,
+              COALESCE(extended_payment_type, 'Cash') AS type, SUM(extended_amount) AS total
+       FROM bookings WHERE extended_amount > 0 AND extended_payment_date IS NOT NULL
+       GROUP BY period, type`
+
+  const params = date ? [date] : []
+
+  const [bookingResult, monthlyResult, extendedResult] = await Promise.all([
+    query(bookingRevenueSql, params),
+    query(monthlyRevenueSql, params),
+    query(extendedRevenueSql, params),
+  ])
+
+  const bookingPayments = bookingResult[0]
+  const monthlyPayments = monthlyResult[0]
+  const extendedPayments = extendedResult[0]
+
+  const rows = mergePeriodRows(bookingPayments, monthlyPayments, extendedPayments)
+  const bookingAgg = aggregateRows(bookingPayments)
+  const monthlyAgg = aggregateRows(monthlyPayments)
+  const extendedAgg = aggregateRows(extendedPayments)
+
+  const totalRevenue = bookingAgg.total + monthlyAgg.total + extendedAgg.total
+
+  const expenseSql = date
+    ? (view === 'month'
       ? `SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE DATE_FORMAT(expense_date,'%Y-%m')=DATE_FORMAT(?,'%Y-%m')`
-      : `SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE expense_date = ?`,
-    [filterDate],
-  )
+      : `SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE expense_date = ?`)
+    : `SELECT COALESCE(SUM(amount),0) AS total FROM expenses`
+
+  const [[expenseRow]] = await query(expenseSql, params)
   const totalExpenses = Number(expenseRow.total)
   const netProfit = totalRevenue - totalExpenses
 
   const [[pendingRow]] = await query(`
-    SELECT COALESCE(SUM(pending_amount),0) + (SELECT COALESCE(SUM(balance_amount),0) FROM bookings WHERE balance_amount > 0) AS pending
+    SELECT COALESCE(SUM(GREATEST(monthly_rent - COALESCE(amount_paid, 0), 0)), 0)
+      + (SELECT COALESCE(SUM(balance_amount), 0) FROM bookings WHERE balance_amount > 0) AS pending
+    FROM monthly_payments WHERE status IN ('pending', 'partial')
   `)
 
   return {
@@ -70,14 +129,7 @@ export const getAccountsSummary = async ({ view = 'day', date } = {}) => {
       netProfit,
       pendingAmount: Number(pendingRow.pending),
     },
-    rows: [{
-      period: filterDate,
-      cash: bookingAgg.cash + monthlyAgg.cash,
-      upi: bookingAgg.upi + monthlyAgg.upi,
-      card: bookingAgg.card + monthlyAgg.card,
-      bank: bookingAgg.bank + monthlyAgg.bank,
-      total: totalRevenue,
-    }],
+    rows,
     totalAmount: totalRevenue,
     profitLoss: { totalRevenue, totalExpenses, netProfit },
   }

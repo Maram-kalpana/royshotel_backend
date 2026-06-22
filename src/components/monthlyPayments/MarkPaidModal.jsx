@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button, TextField, MenuItem } from '@mui/material'
 import Modal from '../Modal'
-import { fieldSx, primaryButtonSx } from '../../utils/layout'
+import { fieldSx, primaryButtonSx, amountFieldSx } from '../../utils/layout'
 import { PAYMENT_MODES, getCurrentMonthYear } from '../../utils/monthlyPaymentHelpers'
 
 /** API: POST /monthly-payments/:id/mark-paid */
@@ -11,9 +11,9 @@ const MarkPaidModal = ({ open, onClose, tenant, onSubmit }) => {
   const [paymentMode, setPaymentMode] = useState('Cash')
 
   useEffect(() => {
-    if (tenant) {
+    if (tenant && open) {
       setMonth(getCurrentMonthYear())
-      setAmount(String(tenant.monthlyRent || ''))
+      setAmount('')
       setPaymentMode('Cash')
     }
   }, [tenant, open])
@@ -55,8 +55,9 @@ const MarkPaidModal = ({ open, onClose, tenant, onSubmit }) => {
           type="number"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          sx={fieldSx}
+          sx={amountFieldSx}
           fullWidth
+          inputProps={{ min: 0 }}
         />
         <TextField select label="Payment Mode" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} sx={fieldSx} fullWidth>
           {PAYMENT_MODES.map((mode) => <MenuItem key={mode} value={mode}>{mode}</MenuItem>)}

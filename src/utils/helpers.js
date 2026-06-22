@@ -157,9 +157,9 @@ export const getPaymentStatus = (balanceAmount, explicitStatus) => {
 
 export const getPaymentStatusBadge = (status) => {
   if (status === 'completed') {
-    return { label: 'Completed', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
+    return { label: 'Completed', className: 'bg-emerald-100 text-emerald-700 border-emerald-200', color: 'success' }
   }
-  return { label: 'Pending', className: 'bg-red-100 text-red-700 border-red-200' }
+  return { label: 'Pending', className: 'bg-orange-100 text-orange-700 border-orange-200', color: 'warning' }
 }
 
 export const formatStayDuration = (duration, stayType) => {

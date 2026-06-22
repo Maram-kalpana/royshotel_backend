@@ -9,19 +9,16 @@ import { useHotel, useAppDispatch } from '../hooks/useStore'
 import { loadRooms } from '../services/dataService'
 import { roomsApi } from '../services/endpoints'
 import { formatCurrency, displayValue } from '../utils/helpers'
-import { fieldSx, primaryButtonSx } from '../utils/layout'
+import { fieldSx, primaryButtonSx, amountFieldSx } from '../utils/layout'
 import toast from 'react-hot-toast'
 
 const acTypes = ['A/C', 'Non A/C']
-const bedTypes = ['Single', 'Double', 'Triple', 'Four Sharing']
-const bedStatuses = ['vacant', 'occupied', 'reserved']
 
 const createEmptyBed = (bedNumber) => ({
   id: null,
   bedNumber,
   bedType: 'Single',
   cost: '',
-  status: 'vacant',
 })
 
 const emptyForm = {
@@ -29,11 +26,6 @@ const emptyForm = {
   roomNumber: '',
   acType: 'Non A/C',
   beds: [createEmptyBed(1)],
-}
-
-const capitalizeStatus = (status) => {
-  if (!status) return '—'
-  return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
 const Rooms = () => {
@@ -51,16 +43,44 @@ const Rooms = () => {
     loadRooms(dispatch).catch(console.error)
   }, [dispatch])
 
-  const tableRows = useMemo(() => rooms.map((room) => ({
-    id: room.id,
-    floorNumber: room.floorNumber,
-    roomNumber: room.roomNumber,
-    acType: displayValue(room.acType, 'Non A/C'),
-    totalBeds: room.totalBeds ?? beds.filter((b) => b.roomId === room.id).length,
-    occupiedBeds: room.occupiedBeds ?? beds.filter((b) => b.roomId === room.id && b.status === 'occupied').length,
-    vacantBeds: room.vacantBeds ?? beds.filter((b) => b.roomId === room.id && b.status === 'vacant').length,
-    room,
-  })), [rooms, beds])
+  const tableRows = useMemo(() => {
+    const rows = []
+    for (const room of rooms) {
+      const roomBeds = beds
+        .filter((b) => b.roomId === room.id)
+        .sort((a, b) => a.bedNumber - b.bedNumber)
+
+      if (!roomBeds.length) {
+        rows.push({
+          id: room.id,
+          floorNumber: room.floorNumber,
+          roomNumber: room.roomNumber,
+          acType: displayValue(room.acType, 'Non A/C'),
+          bedNumber: '—',
+          bedType: '—',
+          cost: null,
+          room,
+          bed: null,
+        })
+        continue
+      }
+
+      for (const bed of roomBeds) {
+        rows.push({
+          id: `${room.id}-${bed.id}`,
+          floorNumber: room.floorNumber,
+          roomNumber: room.roomNumber,
+          acType: displayValue(room.acType, 'Non A/C'),
+          bedNumber: bed.bedNumber,
+          bedType: bed.bedType || '—',
+          cost: bed.cost,
+          room,
+          bed,
+        })
+      }
+    }
+    return rows
+  }, [rooms, beds])
 
   const filteredRows = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -102,7 +122,6 @@ const Rooms = () => {
           bedNumber: b.bedNumber,
           bedType: b.bedType || 'Single',
           cost: b.cost,
-          status: b.status || 'vacant',
         }))
         : [createEmptyBed(1)],
     })
@@ -111,7 +130,7 @@ const Rooms = () => {
 
   const openView = async (row) => {
     try {
-      const detail = await roomsApi.get(row.id)
+      const detail = await roomsApi.get(row.room.id)
       setViewRoom(detail || row.room)
       setViewOpen(true)
     } catch {
@@ -122,7 +141,7 @@ const Rooms = () => {
 
   const handleDelete = async (row) => {
     try {
-      await roomsApi.remove(row.id)
+      await roomsApi.remove(row.room.id)
       await loadRooms(dispatch)
       toast.success(`Room ${row.roomNumber} deleted`)
     } catch (err) {
@@ -184,7 +203,6 @@ const Rooms = () => {
         bedNumber: Number(bed.bedNumber) || index + 1,
         bedType: bed.bedType,
         cost: Number(bed.cost),
-        status: bed.status || 'vacant',
       })),
     }
 
@@ -208,9 +226,9 @@ const Rooms = () => {
     { field: 'floorNumber', headerName: 'Floor Number', flex: 1, minWidth: 110 },
     { field: 'roomNumber', headerName: 'Room Number', flex: 1, minWidth: 110 },
     { field: 'acType', headerName: 'Room Type', flex: 1, minWidth: 100 },
-    { field: 'totalBeds', headerName: 'Total Beds', flex: 1, minWidth: 90 },
-    { field: 'occupiedBeds', headerName: 'Occupied Beds', flex: 1, minWidth: 110 },
-    { field: 'vacantBeds', headerName: 'Vacant Beds', flex: 1, minWidth: 100 },
+    { field: 'bedNumber', headerName: 'Bed Number', flex: 1, minWidth: 100 },
+    { field: 'bedType', headerName: 'Bed Type', flex: 1, minWidth: 110 },
+    { field: 'cost', headerName: 'Cost', flex: 1, minWidth: 100, valueFormatter: (v) => (v != null ? formatCurrency(v) : '—') },
     {
       field: 'actions', headerName: 'Actions', width: 130, sortable: false, filterable: false,
       renderCell: ({ row }) => (
@@ -318,35 +336,21 @@ const Rooms = () => {
                   sx={{ ...fieldSx, flex: '1 1 80px', minWidth: 80 }}
                 />
                 <TextField
-                  select
                   label="Bed Type"
                   size="small"
                   value={bed.bedType}
                   onChange={(e) => updateBedRow(index, { bedType: e.target.value })}
+                  placeholder="Standard"
                   sx={{ ...fieldSx, flex: '2 1 140px', minWidth: 140 }}
-                >
-                  {bedTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
-                </TextField>
+                />
                 <TextField
                   label="Cost"
                   type="number"
                   size="small"
                   value={bed.cost}
                   onChange={(e) => updateBedRow(index, { cost: e.target.value })}
-                  sx={{ ...fieldSx, flex: '1 1 100px', minWidth: 100 }}
+                  sx={{ ...amountFieldSx, flex: '1 1 100px', minWidth: 100 }}
                 />
-                <TextField
-                  select
-                  label="Status"
-                  size="small"
-                  value={bed.status}
-                  onChange={(e) => updateBedRow(index, { status: e.target.value })}
-                  sx={{ ...fieldSx, flex: '1 1 120px', minWidth: 120 }}
-                >
-                  {bedStatuses.map((status) => (
-                    <MenuItem key={status} value={status}>{capitalizeStatus(status)}</MenuItem>
-                  ))}
-                </TextField>
               </Box>
             </Box>
           ))}
@@ -368,7 +372,7 @@ const Rooms = () => {
               <Typography variant="body2" sx={{ color: '#475569' }}>Room: {viewRoom.roomNumber}</Typography>
               <Typography variant="body2" sx={{ color: '#475569' }}>Type: {displayValue(viewRoom.acType, 'Non A/C')}</Typography>
               <Typography variant="body2" sx={{ color: '#475569' }}>
-                Beds: {viewRoom.totalBeds ?? viewBeds.length} total · {viewRoom.occupiedBeds ?? viewBeds.filter((b) => b.status === 'occupied').length} occupied · {viewRoom.vacantBeds ?? viewBeds.filter((b) => b.status === 'vacant').length} vacant
+                Beds: {(viewRoom.beds || viewBeds).length}
               </Typography>
             </Box>
 
@@ -380,27 +384,13 @@ const Rooms = () => {
                   p: 1.5,
                   border: '1px solid #e2e8f0',
                   borderRadius: 1,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
                 }}
               >
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    Bed {bed.bedNumber} → {bed.bedType}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>
-                    {formatCurrency(bed.cost)}
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontWeight: 600,
-                    color: bed.status === 'occupied' ? '#dc2626' : bed.status === 'reserved' ? '#d97706' : '#059669',
-                  }}
-                >
-                  {capitalizeStatus(bed.status)}
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Bed {bed.bedNumber} → {bed.bedType}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#64748b' }}>
+                  {formatCurrency(bed.cost)}
                 </Typography>
               </Box>
             ))}

@@ -83,7 +83,7 @@ const PlainTable = ({
                   component="th"
                   key={col.field}
                   sx={{
-                    px: 2,
+                    px: noHorizontalScroll ? 1 : 2,
                     py: 1.5,
                     textAlign: 'left',
                     fontSize: '0.8125rem',
@@ -129,8 +129,8 @@ const PlainTable = ({
                       component="td"
                       key={col.field}
                       sx={{
-                        px: 2,
-                        py: 1.25,
+                        px: noHorizontalScroll ? 1 : 2,
+                        py: noHorizontalScroll ? 1 : 1.25,
                         fontSize: '0.8125rem',
                         color: '#334155',
                         borderBottom: isLastRow ? 'none' : `1px solid ${BORDER}`,

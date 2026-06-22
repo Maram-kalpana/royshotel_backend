@@ -13,10 +13,38 @@ import BookingForm from '../components/BookingForm'
 import BookingEditForm from '../components/BookingEditForm'
 import CustomerDetailCards from '../components/CustomerDetailCards'
 import { useAuth, useAppDispatch, useHotel, useBookings, useCustomers, useMonthlyPayments } from '../hooks/useStore'
-import { formatCurrency, ROLES, getPaymentStatus, formatStayDuration } from '../utils/helpers'
+import { formatCurrency, ROLES, getPaymentStatus, formatStayDuration, formatDate } from '../utils/helpers'
 import { filterFieldSx, primaryButtonSx } from '../utils/layout'
 import { loadBookings, loadCustomers, loadRooms } from '../services/dataService'
 import { bookingsApi } from '../services/endpoints'
+
+const PaymentInfoCell = ({ amount, paymentType, date, status, pendingStatusOnly = false }) => {
+  const isPending = status === 'pending'
+  const showPaymentDetails = !isPending || !pendingStatusOnly
+
+  return (
+    <Box sx={{ lineHeight: 1.3, py: 0.25, fontSize: '0.75rem' }}>
+      <Box sx={{ fontWeight: 600, color: '#334155' }}>{formatCurrency(amount)}</Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, flexWrap: 'wrap' }}>
+        <PaymentStatusBadge status={status} balanceAmount={status === 'pending' ? amount : 0} />
+        {showPaymentDetails && paymentType && paymentType !== '—' && (
+          <Box component="span" sx={{ fontSize: '0.6875rem', color: '#64748b' }}>{paymentType}</Box>
+        )}
+      </Box>
+      {showPaymentDetails && (
+        <Box sx={{ fontSize: '0.6875rem', color: '#64748b', mt: 0.25 }}>{date ? formatDate(date) : '—'}</Box>
+      )}
+    </Box>
+  )
+}
+
+const LocationCell = ({ floorNumber, roomNumber, bedNumber }) => (
+  <Box sx={{ lineHeight: 1.25, py: 0.25 }}>
+    <Box sx={{ fontSize: '0.6875rem', color: '#64748b' }}>F{floorNumber ?? '—'}</Box>
+    <Box sx={{ fontSize: '0.75rem', color: '#334155', fontWeight: 500 }}>R{roomNumber ?? '—'}</Box>
+    <Box sx={{ fontSize: '0.6875rem', color: '#64748b' }}>B{bedNumber ?? '—'}</Box>
+  </Box>
+)
 
 const emptyEditForm = {
   name: '', phone: '', address: '', city: '', state: '', aadhaar: '', pan: '',
@@ -24,6 +52,7 @@ const emptyEditForm = {
   advancePaymentType: 'Cash', advancePaymentDate: '',
   balancePaymentType: 'Cash', balancePaymentDate: '',
   paymentStatus: 'pending',
+  checkOutDate: '', checkOutTime: '12:00',
   extendedDate: '', extendedTime: '12:00', extendedAmount: '', extendedStatus: 'pending',
   extendedPaymentType: 'Cash', extendedPaymentDate: '',
   shiftDate: '', newFloorId: '', newRoomId: '', newBedId: '',
@@ -45,6 +74,7 @@ const BookingsContent = () => {
   const [bookingDate, setBookingDate] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('')
   const [editForm, setEditForm] = useState(emptyEditForm)
+  const [editSnapshot, setEditSnapshot] = useState(null)
   const updateEditForm = (patch) => setEditForm((prev) => ({ ...prev, ...patch }))
 
   useEffect(() => {
@@ -57,10 +87,20 @@ const BookingsContent = () => {
 
   const tableRows = useMemo(() => {
     let rows = bookings
+      .filter((b) => !['Months', 'Monthly'].includes(b.stayType))
       .filter((b) => isSuperAdmin ? ['active', 'reserved', 'booked'].includes(b.status) : true)
       .map((b) => {
         const customer = customers.find((c) => c.id === b.customerId)
         const status = b.paymentStatus || getPaymentStatus(b.balanceAmount)
+        const bookingDate = (b.checkInDateTime || b.checkInDate || '').split('T')[0]
+        const payments = b.payments || []
+        const completedPayments = payments.filter((p) => p.status === 'completed')
+        const advancePayment = completedPayments[0]
+        const balancePayment = completedPayments.length > 1
+          ? completedPayments[completedPayments.length - 1]
+          : null
+        const advanceStatus = (b.advancePaid ?? 0) > 0 ? 'completed' : 'pending'
+        const balanceStatus = status === 'completed' ? 'completed' : 'pending'
         return {
           id: b.id,
           customerName: b.customerName,
@@ -69,13 +109,25 @@ const BookingsContent = () => {
           roomNumber: b.roomNumber,
           bedNumber: b.bedNumber,
           checkInDateTime: b.checkInDateTime || b.checkInDate,
+          bookingDate,
           checkOutDateTime: b.checkOutDateTime || '',
+          extendedUpto: b.extendedUpto || '',
+          extendedAmount: b.extendedAmount ?? 0,
+          extendedPaymentType: b.extendedPaymentType || '',
+          extendedPaymentDate: b.extendedPaymentDate || '',
+          extendedStatus: b.extendedStatus || '',
           stayDuration: formatStayDuration(b.duration, b.stayType),
           totalAmount: b.totalAmount,
           advancePaid: b.advancePaid ?? 0,
+          advancePaymentType: advancePayment?.type || b.paymentType || 'Cash',
+          advancePaymentDate: advancePayment?.date?.split('T')[0] || bookingDate,
+          advancePaymentStatus: advanceStatus,
           paymentType: b.paymentType || '—',
           paymentStatus: status,
           balanceAmount: b.balanceAmount ?? 0,
+          balancePaymentType: balancePayment?.type || b.paymentType || 'Cash',
+          balancePaymentDate: balancePayment?.date?.split('T')[0] || (balanceStatus === 'completed' ? bookingDate : ''),
+          balancePaymentStatus: balanceStatus,
           booking: b,
           customer,
         }
@@ -161,6 +213,17 @@ const BookingsContent = () => {
     const customer = row.customer
     const today = new Date().toISOString().split('T')[0]
     const ext = splitDateTime(b.extendedUpto || '')
+    const checkout = splitDateTime(b.checkOutDateTime || '')
+    const snapshot = {
+      checkOutDate: checkout.date,
+      checkOutTime: checkout.time || '12:00',
+      extendedDate: ext.date,
+      extendedTime: ext.time || '12:00',
+      extendedStatus: b.extendedStatus || 'pending',
+      extendedPaymentType: b.extendedPaymentType || 'Cash',
+      extendedPaymentDate: b.extendedPaymentDate?.split('T')[0] || '',
+    }
+    setEditSnapshot(snapshot)
     setEditBooking(b)
     setEditForm({
       name: b.customerName || customer?.name || '',
@@ -177,6 +240,8 @@ const BookingsContent = () => {
       balancePaymentType: b.paymentType || 'Cash',
       balancePaymentDate: '',
       paymentStatus: b.paymentStatus || getPaymentStatus(b.balanceAmount),
+      checkOutDate: checkout.date,
+      checkOutTime: checkout.time || '12:00',
       extendedDate: ext.date,
       extendedTime: ext.time || '12:00',
       extendedAmount: '',
@@ -193,7 +258,18 @@ const BookingsContent = () => {
   const handleEditSave = async () => {
     if (!editBooking) return
 
-    const customer = customers.find((c) => c.id === editBooking.customerId)
+    const shiftStarted = editForm.newFloorId || editForm.newRoomId || editForm.newBedId
+    if (shiftStarted) {
+      if (!editForm.newFloorId || !editForm.newRoomId || !editForm.newBedId) {
+        toast.error('Please select floor, room, and bed for room shift')
+        return
+      }
+      if (!editForm.shiftDate) {
+        toast.error('Please select a shift date')
+        return
+      }
+    }
+
     const newTotal = Number(editForm.totalAmount) || editBooking.totalAmount || 0
     const newAdvance = Number(editForm.advancePaid) || 0
     const newBalance = Math.max(0, newTotal - newAdvance)
@@ -211,7 +287,7 @@ const BookingsContent = () => {
       totalAmount: newTotal,
       advancePaid: newAdvance,
       balanceAmount: newBalance,
-      paymentType: editForm.balancePaymentDate ? editForm.balancePaymentType : editForm.advancePaymentType,
+      paymentType: editForm.advancePaymentType,
       paymentStatus: editForm.paymentStatus,
       checkOutDateTime: editBooking.checkOutDateTime,
       extendedUpto: editBooking.extendedUpto,
@@ -224,23 +300,52 @@ const BookingsContent = () => {
 
     if (editForm.balancePaymentDate && newBalance > 0) {
       payload.balancePaymentDate = combineDateAndTime(editForm.balancePaymentDate, editForm.paymentTime || '12:00')
+      payload.balancePaymentAmount = newBalance
+      payload.balancePaymentType = editForm.balancePaymentType
+      payload.paymentType = editForm.balancePaymentType
       payload.paymentStatus = 'completed'
-      payload.balanceAmount = 0
-      payload.advancePaid = newTotal
     }
 
+    const checkoutChanged = editSnapshot && (
+      editForm.checkOutDate !== editSnapshot.checkOutDate ||
+      editForm.checkOutTime !== editSnapshot.checkOutTime
+    )
+    if (checkoutChanged && editForm.checkOutDate) {
+      payload.checkOutDateTime = combineDateAndTime(editForm.checkOutDate, editForm.checkOutTime || '12:00')
+      payload.status = 'completed'
+    }
+
+    if (editForm.newBedId) {
+      payload.newBedId = editForm.newBedId
+      payload.newRoomId = editForm.newRoomId
+      payload.newFloorId = editForm.newFloorId
+      payload.shiftDate = editForm.shiftDate
+    }
+
+    const extChanged = editSnapshot && (
+      editForm.extendedDate !== editSnapshot.extendedDate ||
+      editForm.extendedTime !== editSnapshot.extendedTime ||
+      editForm.extendedStatus !== editSnapshot.extendedStatus ||
+      editForm.extendedPaymentType !== editSnapshot.extendedPaymentType ||
+      editForm.extendedPaymentDate !== editSnapshot.extendedPaymentDate ||
+      Number(editForm.extendedAmount) > 0
+    )
     const extAmount = Number(editForm.extendedAmount) || 0
-    if (editForm.extendedDate && extAmount > 0) {
+    if (extChanged && editForm.extendedDate) {
       payload.extendedUpto = combineDateAndTime(editForm.extendedDate, editForm.extendedTime)
-      payload.extendedAmount = (editBooking.extendedAmount || 0) + extAmount
+      if (extAmount > 0) {
+        payload.extendedAmount = (editBooking.extendedAmount || 0) + extAmount
+        payload.totalAmount = newTotal + extAmount
+        payload.balanceAmount = (payload.balanceAmount ?? newBalance) + extAmount
+      }
       payload.extendedStatus = editForm.extendedStatus
       payload.extendedPaymentType = editForm.extendedPaymentType
       payload.extendedPaymentDate = editForm.extendedPaymentDate
-        ? combineDateAndTime(editForm.extendedPaymentDate, editForm.extendedTime)
-        : editForm.extendedPaymentDate
-      payload.totalAmount = newTotal + extAmount
-      payload.balanceAmount = (payload.balanceAmount || newBalance) + extAmount
-      payload.paymentStatus = editForm.extendedStatus === 'completed' ? payload.paymentStatus : 'pending'
+        ? combineDateAndTime(editForm.extendedPaymentDate, '12:00')
+        : null
+      if (editForm.extendedStatus !== 'completed') {
+        payload.paymentStatus = 'pending'
+      }
     }
 
     try {
@@ -248,85 +353,141 @@ const BookingsContent = () => {
       await reloadBookingData()
       toast.success('Booking updated')
       setEditBooking(null)
+      setEditSnapshot(null)
       setEditForm(emptyEditForm)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update booking')
     }
   }
 
-  const columns = [
-    {
-      field: 'customerInfo',
-      headerName: 'Customer',
-      minWidth: 140,
+  const hasExtendedColumn = useMemo(
+    () => tableRows.some((r) => r.extendedUpto),
+    [tableRows],
+  )
+
+  const columns = useMemo(() => {
+    const baseColumns = [
+      {
+        field: 'customerName',
+        headerName: 'Customer',
+        minWidth: 100,
+        width: 110,
+        allowWrap: true,
+        renderCell: ({ row }) => (
+          <Box sx={{ lineHeight: 1.3, py: 0.25 }}>
+            <Box sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {row.customerName}
+            </Box>
+            <Box sx={{ fontSize: '0.6875rem', color: '#64748b', mt: 0.25 }}>{row.phone}</Box>
+          </Box>
+        ),
+      },
+      {
+        field: 'location',
+        headerName: 'Location',
+        minWidth: 72,
+        width: 78,
+        allowWrap: true,
+        renderCell: ({ row }) => (
+          <LocationCell floorNumber={row.floorNumber} roomNumber={row.roomNumber} bedNumber={row.bedNumber} />
+        ),
+      },
+      {
+        field: 'checkInDateTime',
+        headerName: 'Checked In',
+        minWidth: 90,
+        width: 95,
+        allowWrap: true,
+        renderCell: ({ value }) => <DateTimeStack value={value} />,
+      },
+      {
+        field: 'checkOutDateTime',
+        headerName: 'Checked Out',
+        minWidth: 90,
+        width: 95,
+        allowWrap: true,
+        renderCell: ({ value }) => <DateTimeStack value={value} />,
+      },
+      { field: 'stayDuration', headerName: 'Stay', minWidth: 65, width: 70 },
+      { field: 'totalAmount', headerName: 'Amount', minWidth: 80, width: 85, valueFormatter: (v) => formatCurrency(v) },
+      {
+        field: 'advanceInfo',
+        headerName: 'Advance',
+        minWidth: 100,
+        width: 105,
+        allowWrap: true,
+        renderCell: ({ row }) => (
+          <PaymentInfoCell
+            amount={row.advancePaid}
+            paymentType={row.advancePaymentType}
+            date={row.advancePaymentDate}
+            status={row.advancePaymentStatus}
+          />
+        ),
+      },
+      {
+        field: 'balanceInfo',
+        headerName: 'Balance',
+        minWidth: 100,
+        width: 105,
+        allowWrap: true,
+        renderCell: ({ row }) => (
+          <PaymentInfoCell
+            amount={row.balanceAmount}
+            paymentType={row.balancePaymentType}
+            date={row.balancePaymentDate}
+            status={row.balancePaymentStatus}
+            pendingStatusOnly
+          />
+        ),
+      },
+      {
+        field: 'actions',
+        headerName: 'Actions',
+        minWidth: 90,
+        width: 95,
+        renderCell: ({ row }) => (
+          <div className="flex items-center gap-0.5">
+            <IconButton size="small" color="primary" onClick={() => setViewBooking(row.booking)} title="View"><Eye size={16} /></IconButton>
+            <IconButton size="small" color="info" onClick={() => openEdit(row)} title="Edit"><Pencil size={16} /></IconButton>
+            <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={16} /></IconButton>
+          </div>
+        ),
+      },
+    ]
+
+    if (!hasExtendedColumn) return baseColumns
+
+    const extendedColumn = {
+      field: 'extendedUpto',
+      headerName: 'Extended Upto',
+      minWidth: 105,
+      width: 110,
       allowWrap: true,
       renderCell: ({ row }) => (
-        <Box sx={{ lineHeight: 1.35, py: 0.25 }}>
-          <Box sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#334155' }}>{row.customerName}</Box>
-          <Box sx={{ fontSize: '0.75rem', color: '#64748b', mt: 0.25 }}>{row.phone}</Box>
+        <Box sx={{ lineHeight: 1.3, py: 0.25 }}>
+          <DateTimeStack value={row.extendedUpto} />
+          {(row.extendedAmount > 0 || row.extendedPaymentType) && (
+            <Box sx={{ mt: 0.5 }}>
+              <PaymentInfoCell
+                amount={row.extendedAmount}
+                paymentType={row.extendedPaymentType}
+                date={row.extendedPaymentDate}
+                status={row.extendedStatus || 'pending'}
+              />
+            </Box>
+          )}
         </Box>
       ),
-    },
-    {
-      field: 'location',
-      headerName: 'Floor / Room / Bed',
-      width: 120,
-      allowWrap: true,
-      renderCell: ({ row }) => (
-        <Box sx={{ fontSize: '0.8125rem', color: '#334155', lineHeight: 1.35 }}>
-          F{row.floorNumber} · R{row.roomNumber} · B{row.bedNumber}
-        </Box>
-      ),
-    },
-    {
-      field: 'checkInDateTime',
-      headerName: 'Checked In',
-      width: 115,
-      allowWrap: true,
-      renderCell: ({ value }) => <DateTimeStack value={value} />,
-    },
-    {
-      field: 'checkOutDateTime',
-      headerName: 'Checked Out',
-      width: 115,
-      allowWrap: true,
-      renderCell: ({ value }) => <DateTimeStack value={value} />,
-    },
-    { field: 'stayDuration', headerName: 'Stay', width: 95 },
-    { field: 'totalAmount', headerName: 'Amount', width: 100, valueFormatter: (v) => formatCurrency(v) },
-    {
-      field: 'paymentDetails',
-      headerName: 'Advance / Balance / Type',
-      minWidth: 150,
-      allowWrap: true,
-      renderCell: ({ row }) => (
-        <Box sx={{ lineHeight: 1.35, py: 0.25 }}>
-          <Box sx={{ fontSize: '0.8125rem', color: '#334155' }}>Adv: {formatCurrency(row.advancePaid)}</Box>
-          <Box sx={{ fontSize: '0.8125rem', color: '#334155' }}>Bal: {formatCurrency(row.balanceAmount)}</Box>
-          <Box sx={{ fontSize: '0.75rem', color: '#64748b', mt: 0.25 }}>{row.paymentType}</Box>
-        </Box>
-      ),
-    },
-    {
-      field: 'paymentStatus',
-      headerName: 'Payment Status',
-      width: 130,
-      allowWrap: true,
-      renderCell: ({ row }) => <PaymentStatusBadge status={row.paymentStatus} balanceAmount={row.balanceAmount} />,
-    },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 120,
-      renderCell: ({ row }) => (
-        <div className="flex items-center gap-0.5">
-          <IconButton size="small" color="primary" onClick={() => setViewBooking(row.booking)} title="View"><Eye size={16} /></IconButton>
-          <IconButton size="small" color="info" onClick={() => openEdit(row)} title="Edit"><Pencil size={16} /></IconButton>
-          <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={16} /></IconButton>
-        </div>
-      ),
-    },
-  ]
+    }
+
+    const stayIndex = baseColumns.findIndex((c) => c.field === 'stayDuration')
+    return [
+      ...baseColumns.slice(0, stayIndex + 1),
+      extendedColumn,
+      ...baseColumns.slice(stayIndex + 1),
+    ]
+  }, [hasExtendedColumn])
 
   const viewCustomer = viewBooking ? customers.find((c) => c.id === viewBooking.customerId) : null
   const viewBed = viewBooking ? beds.find((b) => b.id === viewBooking.bedId) : null
@@ -349,7 +510,7 @@ const BookingsContent = () => {
         </Button>
       </div>
 
-      <MuiDataGrid rows={tableRows} columns={columns} pageSize={10} noHorizontalScroll />
+      <MuiDataGrid rows={tableRows} columns={columns} pageSize={10} />
 
       <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add Booking" variant="booking">
         <BookingForm floors={floors} rooms={rooms} beds={beds} onSubmit={handleSubmit} onCancel={() => setDrawerOpen(false)} />
@@ -362,9 +523,13 @@ const BookingsContent = () => {
         variant="customer"
         footer={<Button onClick={() => setViewBooking(null)} sx={{ height: 44 }}>Close</Button>}
       >
-        {viewCustomer && viewBooking && (
+        {viewBooking && (
           <CustomerDetailCards
-            customer={viewCustomer}
+            customer={viewCustomer || {
+              id: viewBooking.customerId,
+              name: viewBooking.customerName,
+              phone: viewBooking.phone,
+            }}
             booking={viewBooking}
             bed={viewBed}
             monthlyTenant={viewMonthly}
@@ -374,12 +539,12 @@ const BookingsContent = () => {
 
       <RightDrawer
         open={!!editBooking}
-        onClose={() => { setEditBooking(null); setEditForm(emptyEditForm) }}
+        onClose={() => { setEditBooking(null); setEditSnapshot(null); setEditForm(emptyEditForm) }}
         title={`Edit Booking — ${editBooking?.customerName || ''}`}
         variant="booking"
         footer={
           <>
-            <Button onClick={() => { setEditBooking(null); setEditForm(emptyEditForm) }} sx={{ height: 44 }}>
+            <Button onClick={() => { setEditBooking(null); setEditSnapshot(null); setEditForm(emptyEditForm) }} sx={{ height: 44 }}>
               Cancel
             </Button>
             <Button variant="contained" onClick={handleEditSave} sx={primaryButtonSx}>
