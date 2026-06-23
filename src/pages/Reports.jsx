@@ -64,7 +64,7 @@ const SuperAdminReports = () => {
         <p className="text-slate-500 mt-1">View daily reports submitted by Admin · {list.length} reports</p>
       </div>
 
-      <MuiDataGrid rows={list} columns={columns} pageSize={10} />
+      <MuiDataGrid rows={list} columns={columns} pageSize={10} mobileGrid />
 
       <Dialog open={!!viewReport} onClose={() => setViewReport(null)} maxWidth="sm" fullWidth PaperProps={{ className: 'rounded-2xl' }}>
         <DialogTitle className="font-[Poppins] font-semibold">Report Details</DialogTitle>
@@ -211,7 +211,7 @@ const AdminReports = () => {
         </Button>
       </div>
 
-      <MuiDataGrid rows={list} columns={columns} pageSize={10} />
+      <MuiDataGrid rows={list} columns={columns} pageSize={10} mobileGrid />
 
       <Dialog open={formOpen} onClose={() => setFormOpen(false)} maxWidth="md" fullWidth PaperProps={{ className: 'rounded-2xl' }}>
         <DialogTitle className="font-[Poppins] font-semibold">

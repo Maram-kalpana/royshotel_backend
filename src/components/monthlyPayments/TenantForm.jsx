@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
-import { formatCurrency } from '../../utils/helpers'
-import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx } from '../../utils/layout'
+import { formatCurrency, isValidImageUrl } from '../../utils/helpers'
+import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx } from '../../utils/layout'
 import DateTimeSplitField, { combineDateAndTime, splitDateTime } from '../DateTimeSplitField'
 import DatePickerField from '../DatePickerField'
 import FileUpload from '../FileUpload'
@@ -71,7 +71,7 @@ export const buildTenantFormDefaults = (tenant, customer, booking, beds = [], fl
 const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer, booking, editMode = false }) => {
   const [photoFile, setPhotoFile] = useState(null)
   const [aadhaarFile, setAadhaarFile] = useState(null)
-  const [panFile, setPanFile] = useState(null)
+  const [aadhaarBackFile, setAadhaarBackFile] = useState(null)
 
   const defaults = useMemo(
     () => buildTenantFormDefaults(tenant, customer, booking, beds, floors),
@@ -84,7 +84,7 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
     reset(defaults)
     setPhotoFile(null)
     setAadhaarFile(null)
-    setPanFile(null)
+    setAadhaarBackFile(null)
   }, [defaults, reset, tenant?.id])
 
   const selectedFloor = watch('floorId')
@@ -169,16 +169,18 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
       securityDeposit: advance,
       photoFile,
       aadhaarFile,
-      panFile,
-      photo: photoFile?.preview || tenant?.photo || customer?.photo || `https://i.pravatar.cc/150?u=${data.name}`,
-      aadhaarDoc: aadhaarFile?.preview || tenant?.aadhaarDoc || customer?.aadhaarDoc || null,
-      panDoc: panFile?.preview || tenant?.panDoc || customer?.panDoc || null,
-      paymentStatus: computedBalance > 0 ? 'pending' : 'completed',
+      photo: photoFile?.preview
+        || (isValidImageUrl(tenant?.photo) ? tenant.photo : null)
+        || (isValidImageUrl(customer?.photo) ? customer.photo : null),
+      aadhaarDoc: aadhaarFile?.preview || (isValidImageUrl(tenant?.aadhaarDoc) ? tenant.aadhaarDoc : null) || (isValidImageUrl(customer?.aadhaarDoc) ? customer.aadhaarDoc : null),
+      aadhaarFront: aadhaarFile?.preview || (isValidImageUrl(tenant?.aadhaarFront) ? tenant.aadhaarFront : null) || (isValidImageUrl(customer?.aadhaarFront) ? customer.aadhaarFront : null),
+      aadhaarBack: aadhaarBackFile?.preview || (isValidImageUrl(tenant?.aadhaarBack) ? tenant.aadhaarBack : null) || (isValidImageUrl(customer?.aadhaarBack) ? customer.aadhaarBack : null),
+      paymentStatus: data.paymentStatus || (computedBalance > 0 ? 'pending' : 'completed'),
     })
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <Section title="Customer Information">
         <Field control={control} name="name" label="Full Name" rules={{ required: 'Name is required' }} errors={errors} />
         <Field control={control} name="phone" label="Phone Number" rules={{ required: 'Phone is required' }} errors={errors} />
@@ -190,9 +192,15 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
       <Section title="Identity Information">
         <Field control={control} name="aadhaar" label="Aadhaar Number" rules={{ required: 'Aadhaar is required', minLength: { value: 12, message: 'Must be 12 digits' } }} errors={errors} />
         <Field control={control} name="pan" label="PAN Number" rules={{ required: 'PAN is required' }} errors={errors} />
-        <FileUpload label="Photo Upload" value={photoFile} onChange={setPhotoFile} />
-        <FileUpload label="Aadhaar Upload" value={aadhaarFile} onChange={setAadhaarFile} />
-        <FileUpload label="PAN Upload" value={panFile} onChange={setPanFile} />
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <FileUpload label="Photo" value={photoFile} onChange={setPhotoFile} accept="image/*" />
+        </Box>
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <FileUpload label="Aadhaar Front" value={aadhaarFile} onChange={setAadhaarFile} accept="image/*" />
+        </Box>
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <FileUpload label="Aadhaar Back" value={aadhaarBackFile} onChange={setAadhaarBackFile} accept="image/*" />
+        </Box>
       </Section>
 
       <Section title="Stay Information">
@@ -212,26 +220,29 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
           </TextField>
         )} />
         <TextField label="Stay Type" value="Monthly" InputProps={{ readOnly: true }} sx={fieldSx} fullWidth />
-        <DateTimeSplitField
-          dateLabel="Check-In Date"
-          timeLabel="Check-In Time"
-          dateValue={checkInDate}
-          timeValue={checkInTime}
-          onDateChange={(v) => setValue('checkInDate', v, { shouldValidate: true })}
-          onTimeChange={(v) => setValue('checkInTime', v)}
-          required
-        />
-        <DateTimeSplitField
-          dateLabel="Check-Out Date (Optional)"
-          timeLabel="Check-Out Time (Optional)"
-          dateValue={checkOutDate}
-          timeValue={checkOutTime}
-          onDateChange={(v) => setValue('checkOutDate', v)}
-          onTimeChange={(v) => setValue('checkOutTime', v)}
-        />
-        <Typography variant="caption" sx={{ color: '#64748b', mt: -1 }}>
-          Leave check-out blank for ongoing monthly tenants
-        </Typography>
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <DateTimeSplitField
+            dateLabel="Check-In Date"
+            timeLabel="Check-In Time"
+            dateValue={checkInDate}
+            timeValue={checkInTime}
+            onDateChange={(v) => setValue('checkInDate', v, { shouldValidate: true })}
+            onTimeChange={(v) => setValue('checkInTime', v)}
+            required
+          />
+        </Box>
+        {editMode && (
+          <Box sx={{ gridColumn: '1 / -1' }}>
+            <DateTimeSplitField
+              dateLabel="Check-Out Date"
+              timeLabel="Check-Out Time"
+              dateValue={checkOutDate}
+              timeValue={checkOutTime}
+              onDateChange={(v) => setValue('checkOutDate', v)}
+              onTimeChange={(v) => setValue('checkOutTime', v)}
+            />
+          </Box>
+        )}
       </Section>
 
       <Section title="Monthly Rent & Payment">
@@ -269,6 +280,12 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
             {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
           </TextField>
         )} />
+        <Controller name="paymentStatus" control={control} render={({ field }) => (
+          <TextField {...field} select label="Payment Status" sx={fieldSx} fullWidth>
+            <MenuItem value="pending">Pending</MenuItem>
+            <MenuItem value="completed">Paid</MenuItem>
+          </TextField>
+        )} />
       </Section>
 
       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>
@@ -282,8 +299,8 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
 }
 
 const Section = ({ title, children }) => (
-  <Box sx={{ p: 2, border: '1px solid #e2e8f0', bgcolor: '#fafbfc', borderRadius: 1 }}>
-    <Typography variant="subtitle2" sx={{ fontFamily: 'Poppins', fontWeight: 600, mb: 1.5, color: '#0f172a' }}>{title}</Typography>
+  <Box sx={{ ...drawerSectionSx }}>
+    <Typography variant="subtitle2" sx={{ fontFamily: 'Poppins', fontWeight: 600, mb: 1, color: '#0f172a', fontSize: '0.8125rem' }}>{title}</Typography>
     <Box sx={drawerFormStackSx}>{children}</Box>
   </Box>
 )

@@ -1,8 +1,8 @@
-import { AppBar, Toolbar, IconButton, Badge, Avatar, InputBase, Box, Typography } from '@mui/material'
-import { Search, Bell, ChevronDown } from 'lucide-react'
+import { AppBar, Toolbar, IconButton, Avatar, InputBase, Box, Typography, useMediaQuery } from '@mui/material'
+import { Search, Menu, ChevronDown } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useUI, useAuth, useAppDispatch } from '../hooks/useStore'
-import { setGlobalSearch } from '../redux/slices/uiSlice'
+import { setGlobalSearch, toggleMobileSidebar } from '../redux/slices/uiSlice'
 import { getPageTitle } from '../utils/helpers'
 import { NAVBAR_HEIGHT } from '../utils/layout'
 
@@ -12,6 +12,7 @@ const Navbar = () => {
   const dispatch = useAppDispatch()
   const { pathname } = useLocation()
   const pageTitle = getPageTitle(pathname)
+  const isMobile = useMediaQuery('(max-width:899px)')
 
   return (
     <AppBar
@@ -19,7 +20,7 @@ const Navbar = () => {
       elevation={0}
       sx={{
         top: 0,
-        height: NAVBAR_HEIGHT,
+        height: { xs: 56, md: NAVBAR_HEIGHT },
         bgcolor: '#ffffff',
         borderBottom: '1px solid #e2e8f0',
         color: '#0f172a',
@@ -30,15 +31,26 @@ const Navbar = () => {
       <Toolbar
         disableGutters
         sx={{
-          height: NAVBAR_HEIGHT,
-          minHeight: `${NAVBAR_HEIGHT}px !important`,
-          px: 2,
+          height: { xs: 56, md: NAVBAR_HEIGHT },
+          minHeight: { xs: '56px !important', md: `${NAVBAR_HEIGHT}px !important` },
+          px: { xs: 1.5, md: 2 },
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr auto', sm: 'minmax(120px, 1fr) minmax(280px, 480px) minmax(120px, 1fr)' },
+          gridTemplateColumns: { xs: 'auto 1fr auto', md: 'minmax(120px, 1fr) minmax(280px, 480px) minmax(120px, 1fr)' },
           alignItems: 'center',
           gap: 2,
         }}
       >
+        {isMobile && (
+          <IconButton
+            size="small"
+            aria-label="Open menu"
+            onClick={() => dispatch(toggleMobileSidebar())}
+            sx={{ color: '#0B1F4D', order: { xs: 0, sm: 0 } }}
+          >
+            <Menu size={22} />
+          </IconButton>
+        )}
+
         <Typography
           variant="h6"
           sx={{
@@ -49,6 +61,7 @@ const Navbar = () => {
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            gridColumn: { xs: 'span 1', sm: 'auto' },
           }}
         >
           {pageTitle}
@@ -56,7 +69,7 @@ const Navbar = () => {
 
         <Box
           sx={{
-            display: 'flex',
+            display: { xs: 'none', md: 'flex' },
             alignItems: 'center',
             gap: 1.5,
             px: 2.5,
@@ -65,9 +78,10 @@ const Navbar = () => {
             border: '1px solid #e2e8f0',
             bgcolor: '#f8fafc',
             gridColumn: { xs: '1 / -1', sm: 'auto' },
-            order: { xs: 2, sm: 0 },
+            order: { xs: 3, sm: 0 },
             width: { xs: '100%', sm: 'auto' },
             maxWidth: '100%',
+            minWidth: 0,
             justifySelf: 'center',
           }}
         >
@@ -76,7 +90,7 @@ const Navbar = () => {
             placeholder="Search..."
             value={globalSearch}
             onChange={(e) => dispatch(setGlobalSearch(e.target.value))}
-            sx={{ flex: 1, fontSize: '0.875rem', color: '#334155' }}
+            sx={{ flex: 1, fontSize: '0.875rem', color: '#334155', minWidth: 0 }}
           />
         </Box>
 
@@ -90,11 +104,6 @@ const Navbar = () => {
             order: { xs: 1, sm: 0 },
           }}
         >
-          <IconButton size="small" aria-label="Notifications" sx={{ color: '#64748b' }}>
-            <Badge color="error" variant="dot" overlap="circular">
-              <Bell size={20} />
-            </Badge>
-          </IconButton>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}>
             <Avatar sx={{ width: 38, height: 38, bgcolor: '#0B1F4D', fontSize: 14, fontWeight: 600 }}>
               {user?.name?.charAt(0) || 'H'}

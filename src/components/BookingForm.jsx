@@ -2,12 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
-import { formatCurrency } from '../utils/helpers'
-import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx } from '../utils/layout'
+import { formatCurrency, parseDurationInput } from '../utils/helpers'
+import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx } from '../utils/layout'
 import DateTimeSplitField, { combineDateAndTime } from './DateTimeSplitField'
 import DatePickerField from './DatePickerField'
 import FileUpload from './FileUpload'
-import PaymentStatusBadge from './PaymentStatusBadge'
 
 const selectMenuProps = {
   disablePortal: true,
@@ -22,7 +21,7 @@ const thirdFieldSx = { ...fieldSx, flex: 1, minWidth: { xs: '100%', sm: 0 } }
 const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
   const [photoFile, setPhotoFile] = useState(null)
   const [aadhaarFile, setAadhaarFile] = useState(null)
-  const [panFile, setPanFile] = useState(null)
+  const [aadhaarBackFile, setAadhaarBackFile] = useState(null)
 
   const now = dayjs()
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
@@ -39,20 +38,20 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
       balancePaymentType: 'Cash',
       balancePaymentDate: '',
       paymentStatus: 'pending',
+      balancePaymentStatus: 'pending',
     },
   })
 
   const selectedFloor = watch('floorId')
   const selectedRoom = watch('roomId')
   const selectedBed = watch('bedId')
-  const duration = Number(watch('duration')) || 0
+  const durationRaw = watch('duration')
+  const { duration, stayType: parsedStayType } = parseDurationInput(durationRaw)
   const advancePaid = Number(watch('advancePaid')) || 0
   const totalAmount = Number(watch('totalAmount')) || 0
   const paymentStatus = watch('paymentStatus')
   const checkInDate = watch('checkInDate')
   const checkInTime = watch('checkInTime')
-  const checkOutDate = watch('checkOutDate')
-  const checkOutTime = watch('checkOutTime')
 
   const vacantBedsList = useMemo(() => beds.filter((b) => b.status === 'vacant'), [beds])
 
@@ -96,16 +95,14 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
 
   const handleFormSubmit = (data) => {
     const checkInDateTime = combineDateAndTime(data.checkInDate, data.checkInTime)
-    const checkOutDateTime = data.checkOutDate
-      ? combineDateAndTime(data.checkOutDate, data.checkOutTime || '12:00')
-      : ''
 
     onSubmit({
       ...data,
-      stayType: 'Days',
+      stayType: parsedStayType,
       duration: duration || 1,
+      durationLabel: parseDurationInput(data.duration).label,
       checkInDateTime,
-      checkOutDateTime,
+      checkOutDateTime: null,
       bedCost: selectedBedData?.cost || 0,
       totalAmount,
       balanceAmount,
@@ -115,18 +112,20 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
         : '',
       photoFile,
       aadhaarFile,
-      panFile,
       photo: photoFile?.preview || null,
+      aadhaarFront: aadhaarFile?.preview || null,
+      aadhaarBack: aadhaarBackFile?.preview || null,
       aadhaarDoc: aadhaarFile?.preview || null,
-      panDoc: panFile?.preview || null,
-      paymentStatus: balanceAmount > 0 && !data.balancePaymentDate ? 'pending' : 'completed',
+      paymentStatus: balanceAmount > 0
+        ? (data.balancePaymentStatus === 'completed' ? 'completed' : 'pending')
+        : (data.paymentStatus === 'completed' ? 'completed' : 'pending'),
     })
     reset()
-    setPhotoFile(null); setAadhaarFile(null); setPanFile(null)
+    setPhotoFile(null); setAadhaarFile(null); setAadhaarBackFile(null)
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <Section title="Customer Information">
         <Field control={control} name="name" label="Full Name" rules={{ required: 'Name is required' }} errors={errors} />
         <Field control={control} name="phone" label="Phone Number" rules={{ required: 'Phone is required' }} errors={errors} />
@@ -138,9 +137,15 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
       <Section title="Identity Information">
         <Field control={control} name="aadhaar" label="Aadhaar Number" rules={{ required: 'Aadhaar is required', minLength: { value: 12, message: 'Must be 12 digits' } }} errors={errors} />
         <Field control={control} name="pan" label="PAN Number" rules={{ required: 'PAN is required' }} errors={errors} />
-        <FileUpload label="Photo Upload" value={photoFile} onChange={setPhotoFile} />
-        <FileUpload label="Aadhaar Upload" value={aadhaarFile} onChange={setAadhaarFile} />
-        <FileUpload label="PAN Upload" value={panFile} onChange={setPanFile} />
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <FileUpload label="Photo" value={photoFile} onChange={setPhotoFile} accept="image/*" />
+        </Box>
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <FileUpload label="Aadhaar Front" value={aadhaarFile} onChange={setAadhaarFile} accept="image/*" />
+        </Box>
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <FileUpload label="Aadhaar Back" value={aadhaarBackFile} onChange={setAadhaarBackFile} accept="image/*" />
+        </Box>
       </Section>
 
       <Section title="Booking Information">
@@ -201,27 +206,28 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
           </TextField>
         )} />
         <Box sx={rowSx}>
-          <Controller name="duration" control={control} rules={{ required: true, min: 1 }} render={({ field }) => (
-            <TextField {...field} type="number" label="Duration (Days)" error={!!errors.duration} sx={{ ...amountFieldSx, flex: 1 }} />
+          <Controller name="duration" control={control} rules={{ required: 'Duration is required' }} render={({ field }) => (
+            <TextField
+              {...field}
+              label="Duration"
+              placeholder="e.g. 3 Days, 2 Weeks"
+              error={!!errors.duration}
+              helperText={errors.duration?.message}
+              sx={{ ...amountFieldSx, flex: 1 }}
+            />
           )} />
         </Box>
-        <DateTimeSplitField
-          dateLabel="Check-In Date"
-          timeLabel="Check-In Time"
-          dateValue={checkInDate}
-          timeValue={checkInTime}
-          onDateChange={(v) => setValue('checkInDate', v, { shouldValidate: true })}
-          onTimeChange={(v) => setValue('checkInTime', v)}
-          required
-        />
-        <DateTimeSplitField
-          dateLabel="Check-Out Date"
-          timeLabel="Check-Out Time"
-          dateValue={checkOutDate}
-          timeValue={checkOutTime}
-          onDateChange={(v) => setValue('checkOutDate', v)}
-          onTimeChange={(v) => setValue('checkOutTime', v)}
-        />
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <DateTimeSplitField
+            dateLabel="Check-In Date"
+            timeLabel="Check-In Time"
+            dateValue={checkInDate}
+            timeValue={checkInTime}
+            onDateChange={(v) => setValue('checkInDate', v, { shouldValidate: true })}
+            onTimeChange={(v) => setValue('checkInTime', v)}
+            required
+          />
+        </Box>
       </Section>
 
       <Section title="Payment Information">
@@ -248,6 +254,12 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
             <DatePickerField label="Advance Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} />
           )} />
         </Box>
+        <Controller name="paymentStatus" control={control} render={({ field }) => (
+          <TextField {...field} select label="Advance Payment Status" sx={{ ...fieldSx, gridColumn: '1 / -1' }}>
+            <MenuItem value="pending">Pending</MenuItem>
+            <MenuItem value="completed">Paid</MenuItem>
+          </TextField>
+        )} />
 
         <Box sx={rowSx}>
           <TextField
@@ -256,11 +268,6 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
             InputProps={{ readOnly: true }}
             sx={{ ...thirdFieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#c2410c' : '#15803d' } }}
           />
-          {balanceAmount <= 0 && (
-            <Box sx={{ ...thirdFieldSx, display: 'flex', alignItems: 'center' }}>
-              <PaymentStatusBadge status="completed" />
-            </Box>
-          )}
           {balanceAmount > 0 && (
             <>
               <Controller name="balancePaymentType" control={control} render={({ field }) => (
@@ -271,16 +278,15 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
               <Controller name="balancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
                 <DatePickerField label="Balance Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} />
               )} />
+              <Controller name="balancePaymentStatus" control={control} render={({ field }) => (
+                <TextField {...field} select label="Balance Payment Status" sx={thirdFieldSx}>
+                  <MenuItem value="pending">Pending</MenuItem>
+                  <MenuItem value="completed">Paid</MenuItem>
+                </TextField>
+              )} />
             </>
           )}
         </Box>
-
-        {balanceAmount > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.875rem' }}>Payment Status:</Typography>
-            <PaymentStatusBadge status={paymentStatus} balanceAmount={balanceAmount} />
-          </Box>
-        )}
       </Section>
 
       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>
@@ -292,8 +298,8 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
 }
 
 const Section = ({ title, children }) => (
-  <Box sx={{ p: 2, border: '1px solid #e2e8f0', bgcolor: '#fafbfc' }}>
-    <Typography variant="subtitle2" sx={{ fontFamily: 'Poppins', fontWeight: 600, mb: 1.5, color: '#0f172a' }}>{title}</Typography>
+  <Box sx={{ ...drawerSectionSx }}>
+    <Typography variant="subtitle2" sx={{ fontFamily: 'Poppins', fontWeight: 600, mb: 1, color: '#0f172a', fontSize: '0.8125rem' }}>{title}</Typography>
     <Box sx={drawerFormStackSx}>{children}</Box>
   </Box>
 )

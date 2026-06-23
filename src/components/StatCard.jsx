@@ -15,7 +15,7 @@ const StatCard = ({ title, value, icon: Icon, color = 'royal', trend, subtitle }
     <motion.div
       whileHover={{ y: -4, boxShadow: '0 12px 40px rgba(30, 64, 175, 0.12)' }}
       transition={{ type: 'spring', stiffness: 300 }}
-      className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100 hover:border-blue-100 transition-colors"
+      className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100 hover:border-blue-100 transition-colors h-full flex flex-col"
     >
       <div className="flex items-start justify-between">
         <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg', colorMap[color])}>

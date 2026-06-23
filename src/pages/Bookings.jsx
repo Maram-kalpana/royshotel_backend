@@ -7,36 +7,15 @@ import MuiDataGrid from '../components/MuiDataGrid'
 import RightDrawer from '../components/RightDrawer'
 import DatePickerField from '../components/DatePickerField'
 import { combineDateAndTime, splitDateTime } from '../components/DateTimeSplitField'
-import PaymentStatusBadge from '../components/PaymentStatusBadge'
-import DateTimeStack from '../components/DateTimeStack'
 import BookingForm from '../components/BookingForm'
 import BookingEditForm from '../components/BookingEditForm'
 import CustomerDetailCards from '../components/CustomerDetailCards'
 import { useAuth, useAppDispatch, useHotel, useBookings, useCustomers, useMonthlyPayments } from '../hooks/useStore'
-import { formatCurrency, ROLES, getPaymentStatus, formatStayDuration, formatDate } from '../utils/helpers'
-import { filterFieldSx, primaryButtonSx } from '../utils/layout'
+import { formatCurrency, ROLES, getPaymentStatus, formatStayDuration } from '../utils/helpers'
+import PageToolbar from '../components/PageToolbar'
+import { filterFieldSx, primaryButtonSx, toolbarSearchSx, toolbarButtonSx } from '../utils/layout'
 import { loadBookings, loadCustomers, loadRooms } from '../services/dataService'
 import { bookingsApi } from '../services/endpoints'
-
-const PaymentInfoCell = ({ amount, paymentType, date, status, pendingStatusOnly = false }) => {
-  const isPending = status === 'pending'
-  const showPaymentDetails = !isPending || !pendingStatusOnly
-
-  return (
-    <Box sx={{ lineHeight: 1.3, py: 0.25, fontSize: '0.75rem' }}>
-      <Box sx={{ fontWeight: 600, color: '#334155' }}>{formatCurrency(amount)}</Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, flexWrap: 'wrap' }}>
-        <PaymentStatusBadge status={status} balanceAmount={status === 'pending' ? amount : 0} />
-        {showPaymentDetails && paymentType && paymentType !== '—' && (
-          <Box component="span" sx={{ fontSize: '0.6875rem', color: '#64748b' }}>{paymentType}</Box>
-        )}
-      </Box>
-      {showPaymentDetails && (
-        <Box sx={{ fontSize: '0.6875rem', color: '#64748b', mt: 0.25 }}>{date ? formatDate(date) : '—'}</Box>
-      )}
-    </Box>
-  )
-}
 
 const LocationCell = ({ floorNumber, roomNumber, bedNumber }) => (
   <Box sx={{ lineHeight: 1.25, py: 0.25 }}>
@@ -116,7 +95,7 @@ const BookingsContent = () => {
           extendedPaymentType: b.extendedPaymentType || '',
           extendedPaymentDate: b.extendedPaymentDate || '',
           extendedStatus: b.extendedStatus || '',
-          stayDuration: formatStayDuration(b.duration, b.stayType),
+          stayDuration: formatStayDuration(b.duration, b.stayType, b.durationLabel),
           totalAmount: b.totalAmount,
           advancePaid: b.advancePaid ?? 0,
           advancePaymentType: advancePayment?.type || b.paymentType || 'Cash',
@@ -173,10 +152,12 @@ const BookingsContent = () => {
         pan: data.pan,
         photo: data.photo,
         aadhaarDoc: data.aadhaarDoc,
-        panDoc: data.panDoc,
+        aadhaarFront: data.aadhaarFront,
+        aadhaarBack: data.aadhaarBack,
         bedId: data.bedId,
         stayType: data.stayType,
         duration: data.duration,
+        durationLabel: data.durationLabel,
         bedCost: data.bedCost,
         totalAmount: data.totalAmount,
         advancePaid: data.advancePaid,
@@ -360,134 +341,54 @@ const BookingsContent = () => {
     }
   }
 
-  const hasExtendedColumn = useMemo(
-    () => tableRows.some((r) => r.extendedUpto),
-    [tableRows],
-  )
-
-  const columns = useMemo(() => {
-    const baseColumns = [
-      {
-        field: 'customerName',
-        headerName: 'Customer',
-        minWidth: 100,
-        width: 110,
-        allowWrap: true,
-        renderCell: ({ row }) => (
-          <Box sx={{ lineHeight: 1.3, py: 0.25 }}>
-            <Box sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {row.customerName}
-            </Box>
-            <Box sx={{ fontSize: '0.6875rem', color: '#64748b', mt: 0.25 }}>{row.phone}</Box>
-          </Box>
-        ),
-      },
-      {
-        field: 'location',
-        headerName: 'Location',
-        minWidth: 72,
-        width: 78,
-        allowWrap: true,
-        renderCell: ({ row }) => (
-          <LocationCell floorNumber={row.floorNumber} roomNumber={row.roomNumber} bedNumber={row.bedNumber} />
-        ),
-      },
-      {
-        field: 'checkInDateTime',
-        headerName: 'Checked In',
-        minWidth: 90,
-        width: 95,
-        allowWrap: true,
-        renderCell: ({ value }) => <DateTimeStack value={value} />,
-      },
-      {
-        field: 'checkOutDateTime',
-        headerName: 'Checked Out',
-        minWidth: 90,
-        width: 95,
-        allowWrap: true,
-        renderCell: ({ value }) => <DateTimeStack value={value} />,
-      },
-      { field: 'stayDuration', headerName: 'Stay', minWidth: 65, width: 70 },
-      { field: 'totalAmount', headerName: 'Amount', minWidth: 80, width: 85, valueFormatter: (v) => formatCurrency(v) },
-      {
-        field: 'advanceInfo',
-        headerName: 'Advance',
-        minWidth: 100,
-        width: 105,
-        allowWrap: true,
-        renderCell: ({ row }) => (
-          <PaymentInfoCell
-            amount={row.advancePaid}
-            paymentType={row.advancePaymentType}
-            date={row.advancePaymentDate}
-            status={row.advancePaymentStatus}
-          />
-        ),
-      },
-      {
-        field: 'balanceInfo',
-        headerName: 'Balance',
-        minWidth: 100,
-        width: 105,
-        allowWrap: true,
-        renderCell: ({ row }) => (
-          <PaymentInfoCell
-            amount={row.balanceAmount}
-            paymentType={row.balancePaymentType}
-            date={row.balancePaymentDate}
-            status={row.balancePaymentStatus}
-            pendingStatusOnly
-          />
-        ),
-      },
-      {
-        field: 'actions',
-        headerName: 'Actions',
-        minWidth: 90,
-        width: 95,
-        renderCell: ({ row }) => (
-          <div className="flex items-center gap-0.5">
-            <IconButton size="small" color="primary" onClick={() => setViewBooking(row.booking)} title="View"><Eye size={16} /></IconButton>
-            <IconButton size="small" color="info" onClick={() => openEdit(row)} title="Edit"><Pencil size={16} /></IconButton>
-            <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={16} /></IconButton>
-          </div>
-        ),
-      },
-    ]
-
-    if (!hasExtendedColumn) return baseColumns
-
-    const extendedColumn = {
-      field: 'extendedUpto',
-      headerName: 'Extended Upto',
-      minWidth: 105,
-      width: 110,
+  const bookingColumns = useMemo(() => [
+    {
+      field: 'customerName',
+      headerName: 'Customer',
+      flex: 1,
+      minWidth: 100,
       allowWrap: true,
       renderCell: ({ row }) => (
         <Box sx={{ lineHeight: 1.3, py: 0.25 }}>
-          <DateTimeStack value={row.extendedUpto} />
-          {(row.extendedAmount > 0 || row.extendedPaymentType) && (
-            <Box sx={{ mt: 0.5 }}>
-              <PaymentInfoCell
-                amount={row.extendedAmount}
-                paymentType={row.extendedPaymentType}
-                date={row.extendedPaymentDate}
-                status={row.extendedStatus || 'pending'}
-              />
-            </Box>
-          )}
+          <Box sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0f172a' }}>{row.customerName}</Box>
+          <Box sx={{ fontSize: '0.75rem', color: '#64748b', mt: 0.25 }}>{row.phone}</Box>
         </Box>
       ),
-    }
+    },
+    {
+      field: 'location',
+      headerName: 'Room & Bed',
+      flex: 1,
+      minWidth: 90,
+      allowWrap: true,
+      renderCell: ({ row }) => (
+        <LocationCell floorNumber={row.floorNumber} roomNumber={row.roomNumber} bedNumber={row.bedNumber} />
+      ),
+    },
+    {
+      field: 'totalAmount',
+      headerName: 'Amount',
+      width: 90,
+      valueFormatter: (v) => formatCurrency(v),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <div className="flex items-center gap-0.5">
+          <IconButton size="small" color="primary" onClick={() => setViewBooking(row.booking)} title="View"><Eye size={16} /></IconButton>
+          <IconButton size="small" color="info" onClick={() => openEdit(row)} title="Edit"><Pencil size={16} /></IconButton>
+          <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={16} /></IconButton>
+        </div>
+      ),
+    },
+  ], [])
 
-    const stayIndex = baseColumns.findIndex((c) => c.field === 'stayDuration')
-    return [
-      ...baseColumns.slice(0, stayIndex + 1),
-      extendedColumn,
-      ...baseColumns.slice(stayIndex + 1),
-    ]
-  }, [hasExtendedColumn])
+  const columns = bookingColumns
+  const compactColumns = bookingColumns
 
   const viewCustomer = viewBooking ? customers.find((c) => c.id === viewBooking.customerId) : null
   const viewBed = viewBooking ? beds.find((b) => b.id === viewBooking.bedId) : null
@@ -495,22 +396,36 @@ const BookingsContent = () => {
 
   return (
     <>
-      <div className="toolbar-row">
-        <div className="flex flex-wrap items-end gap-3 flex-1">
-          <TextField label="Search Booking" value={search} onChange={(e) => setSearch(e.target.value)} sx={filterFieldSx} />
-          <DatePickerField label="Booking Date" value={bookingDate} onChange={setBookingDate} sx={filterFieldSx} />
-          <TextField select label="Payment Status" value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} sx={filterFieldSx}>
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-          </TextField>
-        </div>
-        <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDrawerOpen(true)} sx={{ ...primaryButtonSx, flexShrink: 0 }}>
-          Add Booking
-        </Button>
-      </div>
+      <PageToolbar
+        filters={(
+          <TextField
+            label="Search"
+            placeholder="Search booking..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={toolbarSearchSx}
+            size="small"
+          />
+        )}
+        action={(
+          <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDrawerOpen(true)} sx={toolbarButtonSx}>
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Booking</Box>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Add</Box>
+          </Button>
+        )}
+        secondary={(
+          <>
+            <DatePickerField label="Booking Date" value={bookingDate} onChange={setBookingDate} sx={{ ...filterFieldSx, flex: { xs: '1 1 140px', md: '1 1 180px' } }} />
+            <TextField select label="Payment Status" value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} sx={{ ...filterFieldSx, flex: { xs: '1 1 140px', md: '1 1 180px' } }} size="small">
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+            </TextField>
+          </>
+        )}
+      />
 
-      <MuiDataGrid rows={tableRows} columns={columns} pageSize={10} />
+      <MuiDataGrid rows={tableRows} columns={columns} compactColumns={compactColumns} pageSize={10} noHorizontalScroll />
 
       <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add Booking" variant="booking">
         <BookingForm floors={floors} rooms={rooms} beds={beds} onSubmit={handleSubmit} onCancel={() => setDrawerOpen(false)} />
@@ -520,7 +435,8 @@ const BookingsContent = () => {
         open={!!viewBooking}
         onClose={() => setViewBooking(null)}
         title={`Booking Details — ${viewCustomer?.name || viewBooking?.customerName || ''}`}
-        variant="customer"
+        variant="view"
+        compact
         footer={<Button onClick={() => setViewBooking(null)} sx={{ height: 44 }}>Close</Button>}
       >
         {viewBooking && (

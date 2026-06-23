@@ -68,6 +68,13 @@ export const displayValue = (value, fallback = '—') => {
   return value
 }
 
+/** Ignore placeholder avatar URLs when showing customer photos */
+export const isValidImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return false
+  if (url.includes('pravatar.cc')) return false
+  return true
+}
+
 const COMMON_MENU = [
   { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard' },
   { label: 'Rooms', path: '/rooms', icon: 'DoorOpen' },
@@ -81,7 +88,7 @@ const COMMON_MENU = [
 
 export const SUPER_ADMIN_MENU_ITEMS = [
   ...COMMON_MENU.slice(0, 6),
-  { label: 'Accounts', path: '/accounts', icon: 'CreditCard' },
+  { label: 'Income', path: '/accounts', icon: 'CreditCard' },
   { label: 'Expenses', path: '/expenses', icon: 'Wallet' },
   { label: 'Settings', path: '/settings', icon: 'Settings' },
 ]
@@ -99,7 +106,7 @@ const ROUTE_TITLES = {
   '/bookings': 'Bookings',
   '/monthly-payments': 'Monthly Tenants',
   '/vacancy': 'Vacancy',
-  '/accounts': 'Accounts',
+  '/accounts': 'Income',
   '/expenses': 'Expenses',
   '/settings': 'Settings',
 }
@@ -162,7 +169,30 @@ export const getPaymentStatusBadge = (status) => {
   return { label: 'Pending', className: 'bg-orange-100 text-orange-700 border-orange-200', color: 'warning' }
 }
 
-export const formatStayDuration = (duration, stayType) => {
+export const parseDurationInput = (input) => {
+  const trimmed = String(input ?? '').trim()
+  if (!trimmed) return { duration: 1, stayType: 'Days' }
+
+  const match = trimmed.match(/^(\d+)\s*(hours?|days?|weeks?|months?)?$/i)
+  if (match) {
+    const duration = parseInt(match[1], 10)
+    const unit = (match[2] || 'days').toLowerCase()
+    let stayType = 'Days'
+    if (unit.startsWith('hour')) stayType = 'Hours'
+    else if (unit.startsWith('week')) stayType = 'Weeks'
+    else if (unit.startsWith('month')) stayType = 'Months'
+    return { duration, stayType }
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    return { duration: parseInt(trimmed, 10), stayType: 'Days' }
+  }
+
+  return { duration: 1, stayType: 'Days', label: trimmed }
+}
+
+export const formatStayDuration = (duration, stayType, label) => {
+  if (label) return label
   if (!duration && !stayType) return '—'
   return `${duration || 0} ${stayType || 'Days'}`
 }

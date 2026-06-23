@@ -5,6 +5,7 @@ const uiSlice = createSlice({
   name: 'ui',
   initialState: {
     sidebarCollapsed: false,
+    mobileSidebarOpen: false,
     theme: settingsData.theme || 'light',
     settings: settingsData,
     loading: false,
@@ -16,6 +17,12 @@ const uiSlice = createSlice({
     },
     setSidebarCollapsed: (state, action) => {
       state.sidebarCollapsed = action.payload
+    },
+    setMobileSidebarOpen: (state, action) => {
+      state.mobileSidebarOpen = action.payload
+    },
+    toggleMobileSidebar: (state) => {
+      state.mobileSidebarOpen = !state.mobileSidebarOpen
     },
     setTheme: (state, action) => {
       state.theme = action.payload
@@ -32,5 +39,14 @@ const uiSlice = createSlice({
   },
 })
 
-export const { toggleSidebar, setSidebarCollapsed, setTheme, updateSettings, setLoading, setGlobalSearch } = uiSlice.actions
+export const {
+  toggleSidebar,
+  setSidebarCollapsed,
+  setMobileSidebarOpen,
+  toggleMobileSidebar,
+  setTheme,
+  updateSettings,
+  setLoading,
+  setGlobalSearch,
+} = uiSlice.actions
 export default uiSlice.reducer

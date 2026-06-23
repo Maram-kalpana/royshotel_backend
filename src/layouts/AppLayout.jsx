@@ -6,10 +6,12 @@ import Sidebar from '../components/Sidebar'
 import AppDataLoader from '../components/AppDataLoader'
 import { useUI } from '../hooks/useStore'
 import { getSidebarOffset, hideScrollbarSx } from '../utils/layout'
+import { useMediaQuery } from '@mui/material'
 
 const AppLayout = () => {
   const { sidebarCollapsed } = useUI()
-  const sidebarOffset = getSidebarOffset(sidebarCollapsed)
+  const isMobile = useMediaQuery('(max-width:899px)')
+  const sidebarOffset = isMobile ? 0 : getSidebarOffset(sidebarCollapsed)
 
   return (
     <AppDataLoader>

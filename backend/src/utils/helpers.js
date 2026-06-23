@@ -31,6 +31,7 @@ export const mapExpenseToFrontend = (row) => ({
     : row.expense_date,
   amount: Number(row.amount),
   description: row.notes || row.expense_name,
+  receipt: row.receipt_url || null,
   createdBy: row.created_by,
   createdAt: row.created_at,
 })
@@ -41,6 +42,7 @@ export const mapExpenseFromFrontend = (body) => ({
   amount: Number(body.amount),
   expense_date: body.date || body.expenseDate,
   notes: body.description || body.notes || '',
+  receipt_url: body.receipt || body.receiptUrl || null,
 })
 
 export const getMonthYearLabel = (date = new Date()) =>

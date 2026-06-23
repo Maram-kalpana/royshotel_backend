@@ -29,9 +29,9 @@ export const createExpense = async (body, createdBy) => {
   const data = mapExpenseFromFrontend(body)
   const id = generateId('exp')
   await query(
-    `INSERT INTO expenses (id, expense_name, category, amount, expense_date, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, data.expense_name, data.category, data.amount, data.expense_date, data.notes, createdBy],
+    `INSERT INTO expenses (id, expense_name, category, amount, expense_date, notes, receipt_url, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, data.expense_name, data.category, data.amount, data.expense_date, data.notes, data.receipt_url, createdBy],
   )
   return getExpenseById(id)
 }
@@ -39,8 +39,8 @@ export const createExpense = async (body, createdBy) => {
 export const updateExpense = async (id, body) => {
   const data = mapExpenseFromFrontend(body)
   await query(
-    `UPDATE expenses SET expense_name=?, category=?, amount=?, expense_date=?, notes=? WHERE id=?`,
-    [data.expense_name, data.category, data.amount, data.expense_date, data.notes, id],
+    `UPDATE expenses SET expense_name=?, category=?, amount=?, expense_date=?, notes=?, receipt_url=? WHERE id=?`,
+    [data.expense_name, data.category, data.amount, data.expense_date, data.notes, data.receipt_url, id],
   )
   return getExpenseById(id)
 }

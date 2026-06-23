@@ -5,6 +5,7 @@ import mysql from 'mysql2/promise'
 import bcrypt from 'bcrypt'
 import { env } from './env.js'
 import logger from './logger.js'
+import { runMigrations } from './runMigrations.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -96,6 +97,7 @@ export const initializeDatabase = async () => {
     }
 
     await bootstrap.query(`USE \`${dbName}\``)
+    await runMigrations(bootstrap, dbName, logger)
     await ensureIndexes(bootstrap, dbName)
     await seedDefaultAdmins(bootstrap)
   } finally {

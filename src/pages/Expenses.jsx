@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Button, IconButton, TextField, Dialog, DialogTitle, DialogContent, Stack, Typography, Box } from '@mui/material'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '../components/PageTransition'
 import MuiDataGrid from '../components/MuiDataGrid'
@@ -11,14 +11,12 @@ import { useExpenses, useAppDispatch } from '../hooks/useStore'
 import { loadExpenses } from '../services/dataService'
 import { expensesApi } from '../services/endpoints'
 import { formatCurrency, formatDate } from '../utils/helpers'
-import { filterFieldSx, fieldSx, primaryButtonSx } from '../utils/layout'
+import PageToolbar from '../components/PageToolbar'
+import { filterFieldSx, fieldSx, primaryButtonSx, toolbarSearchSx, toolbarButtonSx, compactDateFilterSx } from '../utils/layout'
+import { GridActions } from '../components/tableCells'
+import FileUpload from '../components/FileUpload'
 
-const compactFilterSx = {
-  ...filterFieldSx,
-  flex: { xs: '1 1 100%', md: '0 0 200px' },
-  minWidth: { xs: '100%', md: 200 },
-  maxWidth: { md: 200 },
-}
+const compactFilterSx = compactDateFilterSx
 
 const TYPE_LABELS = {
   maintenance: 'Maintenance',
@@ -33,6 +31,7 @@ const emptyForm = {
   date: '',
   amount: '',
   description: '',
+  receipt: null,
 }
 
 const Expenses = () => {
@@ -42,7 +41,9 @@ const Expenses = () => {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editExpense, setEditExpense] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  const [receiptFile, setReceiptFile] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [viewExpense, setViewExpense] = useState(null)
   const [filterDate, setFilterDate] = useState('')
   const [searchDescription, setSearchDescription] = useState('')
 
@@ -94,7 +95,9 @@ const Expenses = () => {
         date: expense.date || '',
         amount: expense.amount ?? '',
         description: expense.description || '',
+        receipt: expense.receipt || null,
       })
+      setReceiptFile(expense.receipt ? { preview: expense.receipt, name: 'receipt.jpg' } : null)
     } else {
       setEditExpense(null)
       setForm(emptyForm)
@@ -106,6 +109,7 @@ const Expenses = () => {
     setDrawerOpen(false)
     setEditExpense(null)
     setForm(emptyForm)
+    setReceiptFile(null)
   }
 
   const handleSave = async () => {
@@ -118,6 +122,7 @@ const Expenses = () => {
       ...form,
       type: form.type.trim(),
       amount: Number(form.amount),
+      receipt: receiptFile?.preview || form.receipt || null,
     }
 
     try {
@@ -148,6 +153,38 @@ const Expenses = () => {
     }
   }
 
+  const renderActions = (row) => (
+    <GridActions>
+      <IconButton size="small" color="info" onClick={() => setViewExpense(row.expense)} title="View">
+        <Eye size={15} />
+      </IconButton>
+      <IconButton size="small" onClick={() => handleOpenDrawer(row.expense)} title="Edit">
+        <Pencil size={15} />
+      </IconButton>
+      <IconButton size="small" color="error" onClick={() => setDeleteConfirm(row.expense)} title="Delete">
+        <Trash2 size={15} />
+      </IconButton>
+    </GridActions>
+  )
+
+  const compactColumns = useMemo(() => [
+    { field: 'type', headerName: 'Type', flex: 1, minWidth: 100 },
+    {
+      field: 'amount',
+      headerName: 'Amount',
+      width: 90,
+      valueFormatter: (v) => formatCurrency(v),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 72,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => renderActions(row),
+    },
+  ], [])
+
   const columns = [
     { field: 'type', headerName: 'Type', flex: 1, minWidth: 130 },
     { field: 'date', headerName: 'Date', flex: 1, minWidth: 130, valueFormatter: (v) => formatDate(v) },
@@ -156,23 +193,18 @@ const Expenses = () => {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 100,
+      width: 120,
       sortable: false,
       filterable: false,
       renderCell: ({ row }) => (
         <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
-          <IconButton
-            size="small"
-            onClick={() => handleOpenDrawer(row.expense)}
-            title="Edit"
-          >
+          <IconButton size="small" color="info" onClick={() => setViewExpense(row.expense)} title="View">
+            <Eye size={16} />
+          </IconButton>
+          <IconButton size="small" onClick={() => handleOpenDrawer(row.expense)} title="Edit">
             <Pencil size={16} />
           </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => setDeleteConfirm(row.expense)}
-            title="Delete"
-          >
+          <IconButton size="small" color="error" onClick={() => setDeleteConfirm(row.expense)} title="Delete">
             <Trash2 size={16} />
           </IconButton>
         </Stack>
@@ -183,46 +215,40 @@ const Expenses = () => {
   return (
     <PageTransition className="page-container">
       <div className="flex flex-col gap-4">
-        <div className="toolbar-row">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Expenses</h1>
-            <p className="text-sm text-slate-500">Manage all expense records</p>
-          </div>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => handleOpenDrawer()}
-            sx={{ ...primaryButtonSx, flexShrink: 0 }}
-          >
-            Add Expense
-          </Button>
-        </div>
+        <PageToolbar
+          filters={(
+            <>
+              <DatePickerField
+                label="Date"
+                value={filterDate}
+                onChange={setFilterDate}
+                sx={{ ...compactDateFilterSx, flex: { xs: '0 0 auto', md: '0 0 auto' }, minWidth: { xs: 120, sm: 130 } }}
+              />
+              <TextField
+                label="Search"
+                placeholder="Search..."
+                value={searchDescription}
+                onChange={(e) => setSearchDescription(e.target.value)}
+                size="small"
+                sx={toolbarSearchSx}
+              />
+            </>
+          )}
+          action={(
+            <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => handleOpenDrawer()} sx={toolbarButtonSx}>
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Expense</Box>
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Add</Box>
+            </Button>
+          )}
+        />
 
         <Box
           sx={{
             display: 'flex',
-            flexWrap: { xs: 'wrap', md: 'nowrap' },
-            alignItems: 'flex-end',
-            gap: 2,
+            justifyContent: { xs: 'stretch', md: 'flex-end' },
             mb: 1,
           }}
         >
-          <DatePickerField
-            label="Date"
-            value={filterDate}
-            onChange={setFilterDate}
-            slotProps={{ textField: { size: 'small', sx: compactFilterSx } }}
-          />
-
-          <TextField
-            label="Search"
-            placeholder="Search..."
-            value={searchDescription}
-            onChange={(e) => setSearchDescription(e.target.value)}
-            size="small"
-            sx={compactFilterSx}
-          />
-
           <Box
             sx={{
               display: 'flex',
@@ -234,7 +260,7 @@ const Expenses = () => {
               borderRadius: 1,
               border: '1px solid #e2e8f0',
               bgcolor: '#f8fafc',
-              ...compactFilterSx,
+              flex: { xs: 1, md: '0 0 auto' },
             }}
           >
             <Typography variant="caption" sx={{ color: '#64748b', lineHeight: 1.2 }}>
@@ -249,8 +275,9 @@ const Expenses = () => {
         <MuiDataGrid
           rows={tableRows}
           columns={columns}
+          compactColumns={compactColumns}
           noHorizontalScroll
-          onRowClick={(row) => handleOpenDrawer(row.expense)}
+          onRowClick={(row) => setViewExpense(row.expense)}
         />
       </div>
 
@@ -307,7 +334,28 @@ const Expenses = () => {
             placeholder="Enter expense description..."
             sx={fieldSx}
           />
+          <FileUpload label="Receipt" value={receiptFile} onChange={setReceiptFile} accept="image/*" />
         </DrawerFormStack>
+      </RightDrawer>
+
+      <RightDrawer
+        open={!!viewExpense}
+        onClose={() => setViewExpense(null)}
+        title="Expense Details"
+        variant="view"
+        compact
+        footer={<Button onClick={() => setViewExpense(null)} sx={{ height: 44 }}>Close</Button>}
+      >
+        {viewExpense && (
+          <DrawerFormStack>
+            <Box sx={{ p: 2, border: '1px solid #e2e8f0', borderRadius: 1, bgcolor: '#fafbfc' }}>
+              <Typography variant="body2" sx={{ mb: 1 }}><strong>Type:</strong> {TYPE_LABELS[viewExpense.type] || viewExpense.type}</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}><strong>Date:</strong> {formatDate(viewExpense.date)}</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}><strong>Amount:</strong> {formatCurrency(viewExpense.amount)}</Typography>
+              <Typography variant="body2"><strong>Description:</strong> {viewExpense.description || '—'}</Typography>
+            </Box>
+          </DrawerFormStack>
+        )}
       </RightDrawer>
 
       <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>

@@ -9,7 +9,9 @@ import { useHotel, useAppDispatch } from '../hooks/useStore'
 import { loadRooms } from '../services/dataService'
 import { roomsApi } from '../services/endpoints'
 import { formatCurrency, displayValue } from '../utils/helpers'
-import { fieldSx, primaryButtonSx, amountFieldSx } from '../utils/layout'
+import { MergedCell, VerticalActions } from '../components/tableCells'
+import PageToolbar from '../components/PageToolbar'
+import { fieldSx, primaryButtonSx, amountFieldSx, toolbarSearchSx, toolbarButtonSx } from '../utils/layout'
 import toast from 'react-hot-toast'
 
 const acTypes = ['A/C', 'Non A/C']
@@ -222,6 +224,55 @@ const Rooms = () => {
     }
   }
 
+  const compactColumns = useMemo(() => [
+    {
+      field: 'roomInfo',
+      headerName: 'Room',
+      flex: 1,
+      minWidth: 100,
+      allowWrap: true,
+      renderCell: ({ row }) => (
+        <MergedCell lines={[
+          `Floor ${row.floorNumber} · Room ${row.roomNumber}`,
+          row.acType,
+        ]} />
+      ),
+    },
+    {
+      field: 'bedInfo',
+      headerName: 'Bed',
+      flex: 1,
+      minWidth: 80,
+      allowWrap: true,
+      renderCell: ({ row }) => (
+        <MergedCell lines={[
+          `Bed ${row.bedNumber}`,
+          row.bedType,
+        ]} />
+      ),
+    },
+    {
+      field: 'cost',
+      headerName: 'Cost',
+      width: 80,
+      valueFormatter: (v) => (v != null ? formatCurrency(v) : '—'),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 52,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <VerticalActions>
+          <IconButton size="small" color="primary" onClick={() => openView(row)} title="View"><Eye size={15} /></IconButton>
+          <IconButton size="small" color="info" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></IconButton>
+          <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={15} /></IconButton>
+        </VerticalActions>
+      ),
+    },
+  ], [])
+
   const columns = [
     { field: 'floorNumber', headerName: 'Floor Number', flex: 1, minWidth: 110 },
     { field: 'roomNumber', headerName: 'Room Number', flex: 1, minWidth: 110 },
@@ -243,18 +294,26 @@ const Rooms = () => {
 
   return (
     <PageTransition className="page-container">
-      <div className="toolbar-row">
-        <TextField
-          placeholder="Search floor or room number..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ ...fieldSx, width: { xs: '100%', sm: 320 } }}
-          InputProps={{ startAdornment: <Search size={16} className="mr-2 text-slate-400 shrink-0" /> }}
-        />
-        <Button variant="contained" startIcon={<Plus size={18} />} onClick={openAdd} sx={primaryButtonSx}>Add Room</Button>
-      </div>
+      <PageToolbar
+        filters={(
+          <TextField
+            placeholder="Search floor or room..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={toolbarSearchSx}
+            size="small"
+            InputProps={{ startAdornment: <Search size={16} className="mr-2 text-slate-400 shrink-0" /> }}
+          />
+        )}
+        action={(
+          <Button variant="contained" startIcon={<Plus size={18} />} onClick={openAdd} sx={toolbarButtonSx}>
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Room</Box>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Add</Box>
+          </Button>
+        )}
+      />
 
-      <MuiDataGrid rows={filteredRows} columns={columns} pageSize={10} />
+      <MuiDataGrid rows={filteredRows} columns={columns} compactColumns={compactColumns} pageSize={10} noHorizontalScroll />
 
       <RightDrawer
         open={formOpen}

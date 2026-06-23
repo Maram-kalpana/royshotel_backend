@@ -165,6 +165,13 @@ export const updateBooking = async (id, data) => {
     const isCheckout = Boolean(toDateTimeOrNull(data.checkOutDateTime))
       && ['checked-out', 'completed'].includes(data.status || booking.status)
 
+    if (isCheckout && balance > 0) {
+      throw Object.assign(
+        new Error(`Cannot checkout while balance of ₹${balance} is pending`),
+        { status: 400 },
+      )
+    }
+
     let bedId = booking.bed_id
     let roomId = booking.room_id
     let roomNumber = booking.room_number

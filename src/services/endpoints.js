@@ -147,6 +147,27 @@ export const monthlyPaymentsApi = {
     console.log('API Request Started: POST /monthly-payments/' + id + '/mark-paid')
     return unwrap(await api.post(`/monthly-payments/${id}/mark-paid`, data))
   },
+  addPayment: async (id, data) => {
+    console.log('API Request Started: PUT /monthly-payments/' + id + '/add-payment')
+    return unwrap(await api.put(`/monthly-payments/${id}/add-payment`, data))
+  },
+  getById: async (id) => {
+    console.log('API Request Started: GET /monthly-payments/' + id)
+    return unwrap(await api.get(`/monthly-payments/${id}`))
+  },
+  dues: async (params) => {
+    console.log('API Request Started: GET /monthly-payments/dues')
+    return unwrap(await api.get('/monthly-payments/dues', { params }))
+  },
+  collectionSummary: async (params) => {
+    console.log('API Request Started: GET /monthly-payments/collection-summary')
+    return unwrap(await api.get('/monthly-payments/collection-summary', { params }))
+  },
+  exportCsv: async (params) => {
+    console.log('API Request Started: GET /monthly-payments/export')
+    const res = await api.get('/monthly-payments/export', { params, responseType: 'blob' })
+    return res.data
+  },
   remove: async (id) => {
     console.log('API Request Started: DELETE /monthly-payments/' + id)
     return unwrap(await api.delete(`/monthly-payments/${id}`))

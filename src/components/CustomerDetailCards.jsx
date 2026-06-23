@@ -1,159 +1,124 @@
 import { Avatar } from '@mui/material'
-import { User, CreditCard, IdCard, Building2, Clock, CalendarClock, ArrowRightLeft } from 'lucide-react'
+import { User, CreditCard, Building2, Clock, CalendarClock } from 'lucide-react'
 import {
-  formatCurrency, formatDate, displayValue, mapStayTypeLabel,
+  formatCurrency, displayValue, mapStayTypeLabel, isValidImageUrl,
   formatCheckInDateTime, formatCheckOutDateTime,
 } from '../utils/helpers'
 import { getDueDateLabel } from '../utils/monthlyPaymentHelpers'
+import DocumentSection from './DocumentSection'
+import MonthlyPaymentStatusBadge from './monthlyPayments/MonthlyPaymentStatusBadge'
 
-const DetailCard = ({ title, icon: Icon, items }) => (
-  <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-    <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
-      <Icon size={16} className="text-[#0B1F4D] shrink-0" />
-      <h3 className="text-sm font-semibold text-[#0B1F4D]">{title}</h3>
-    </div>
-    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {items.map(({ label, value }) => (
-        <div key={label} className="rounded-lg bg-slate-50 px-3 py-2.5">
-          <p className="text-xs text-slate-500">{label}</p>
-          <p className="text-sm font-medium text-slate-900 mt-0.5 break-words">{displayValue(value)}</p>
-        </div>
-      ))}
-    </div>
+const DetailRow = ({ label, value }) => (
+  <div className="flex gap-1.5 py-1 border-b border-slate-100 last:border-0 text-xs">
+    <span className="text-slate-500 shrink-0 w-[42%]">{label}</span>
+    <span className="font-medium text-slate-900 break-words flex-1">{displayValue(value)}</span>
   </div>
 )
+
+const DetailCard = ({ title, icon: Icon, children }) => (
+  <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border-b border-slate-100">
+      <Icon size={13} className="text-[#0B1F4D] shrink-0" />
+      <h3 className="text-xs font-semibold text-[#0B1F4D]">{title}</h3>
+    </div>
+    <div className="px-2.5 py-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-3">{children}</div>
+  </div>
+)
+
+const hasPaymentData = (record) => {
+  const paid = record.totalPaid ?? record.amount ?? 0
+  return paid > 0 || (record.payments?.length > 0)
+}
 
 const CustomerDetailCards = ({ customer, booking, bed, monthlyTenant }) => {
   const stayType = mapStayTypeLabel(customer.stayType || booking?.stayType)
   const isMonthly = stayType === 'Monthly'
+  const photo = isValidImageUrl(customer.photo) ? customer.photo : null
 
-  const stayItems = [
-    { label: 'Floor', value: bed?.floorNumber ?? customer.floorNumber },
-    { label: 'Room Number', value: customer.roomNumber },
-    { label: 'Bed Number', value: customer.bedNumber },
-    { label: 'Stay Type', value: stayType },
-    { label: 'Check-In Date & Time', value: formatCheckInDateTime(customer, booking) },
-    { label: 'Checked Out Date', value: formatCheckOutDateTime(customer, booking) },
-    { label: 'Stay Status', value: customer.status },
-  ]
-
-  if (isMonthly) {
-    stayItems.push(
-      { label: 'Monthly Rent', value: formatCurrency(monthlyTenant?.monthlyRent ?? customer.monthlyRent) },
-      { label: 'Due Day', value: monthlyTenant ? getDueDateLabel(monthlyTenant.dueDay) : displayValue(customer.dueDay ? `${customer.dueDay} of month` : null) },
-      { label: 'Security Deposit', value: formatCurrency(customer.securityDeposit ?? booking?.advancePaid) },
-    )
-  }
+  const paymentHistory = (monthlyTenant?.paymentHistory || []).filter(hasPaymentData)
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col items-center text-center rounded-xl border border-slate-200 bg-gradient-to-b from-[#0B1F4D] to-[#1e3a8a] p-6 text-white">
-        <Avatar
-          src={customer.photo}
-          alt={customer.name}
-          sx={{ width: 88, height: 88, border: '3px solid rgba(255,255,255,0.3)', mb: 2 }}
-        />
-        <h2 className="text-lg font-semibold font-[Poppins]">{displayValue(customer.name)}</h2>
-        <p className="text-blue-200 text-sm mt-1 capitalize">{displayValue(customer.status, 'Active')}</p>
-        <p className="text-blue-100/80 text-xs mt-1">{stayType} Stay</p>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-gradient-to-r from-[#0B1F4D] to-[#1e3a8a] p-2.5 text-white">
+        {photo ? (
+          <Avatar src={photo} alt={customer.name} sx={{ width: 40, height: 40, border: '2px solid rgba(255,255,255,0.3)' }} />
+        ) : (
+          <Avatar sx={{ width: 40, height: 40, bgcolor: 'rgba(255,255,255,0.15)', fontSize: 14 }}>{customer.name?.charAt(0) || '?'}</Avatar>
+        )}
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold truncate">{displayValue(customer.name)}</h2>
+          <p className="text-blue-200 text-[10px] capitalize">{displayValue(customer.status, 'Active')} · {stayType}</p>
+        </div>
       </div>
 
-      <DetailCard
-        title="Personal Information"
-        icon={User}
-        items={[
-          { label: 'Full Name', value: customer.name },
-          { label: 'Phone', value: customer.phone },
-          { label: 'Email', value: customer.email },
-          { label: 'Address', value: customer.address },
-          { label: 'City', value: customer.city },
-          { label: 'State', value: customer.state },
-        ]}
-      />
+      <DetailCard title="Customer Info" icon={User}>
+        <DetailRow label="Name" value={customer.name} />
+        <DetailRow label="Phone" value={customer.phone} />
+        <DetailRow label="Address" value={customer.address} />
+        <DetailRow label="City" value={customer.city} />
+        <DetailRow label="State" value={customer.state} />
+        <DetailRow label="Aadhaar" value={customer.aadhaar} />
+      </DetailCard>
 
-      <DetailCard
-        title="Identity Information"
-        icon={IdCard}
-        items={[
-          { label: 'Aadhaar Number', value: customer.aadhaar },
-          { label: 'PAN Number', value: customer.pan },
-          { label: 'Customer ID', value: customer.id },
-        ]}
-      />
+      <DetailCard title="Booking Info" icon={Building2}>
+        <DetailRow label="Floor" value={bed?.floorNumber ?? customer.floorNumber} />
+        <DetailRow label="Room" value={customer.roomNumber} />
+        <DetailRow label="Bed" value={customer.bedNumber} />
+        <DetailRow label="Check-In" value={formatCheckInDateTime(customer, booking)} />
+        <DetailRow label="Check Out" value={formatCheckOutDateTime(customer, booking)} />
+        {isMonthly && (
+          <>
+            <DetailRow label="Rent" value={formatCurrency(monthlyTenant?.monthlyRent ?? customer.monthlyRent)} />
+            <DetailRow label="Due Day" value={monthlyTenant ? getDueDateLabel(monthlyTenant.dueDay) : customer.dueDay} />
+          </>
+        )}
+      </DetailCard>
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
-          <IdCard size={16} className="text-[#0B1F4D]" />
-          <h3 className="text-sm font-semibold text-[#0B1F4D]">Identity Documents</h3>
-        </div>
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            { label: 'Customer Photo', src: customer.photo },
-            { label: 'Aadhaar Card', src: customer.aadhaarDoc || customer.photo },
-            { label: 'PAN Card', src: customer.panDoc || customer.photo },
-          ].map((doc) => (
-            <div key={doc.label} className="rounded-lg border border-slate-200 overflow-hidden">
-              <Avatar
-                src={doc.src}
-                variant="rounded"
-                sx={{ width: '100%', height: 120, borderRadius: 0 }}
-              />
-              <p className="text-xs font-medium text-slate-600 text-center py-2 bg-slate-50">{doc.label}</p>
+      {booking && (
+        <DetailCard title="Payment Info" icon={CreditCard}>
+          <DetailRow label="Advance" value={formatCurrency(booking.advancePaid)} />
+          <DetailRow label="Total" value={formatCurrency(booking.totalAmount)} />
+          <DetailRow label="Balance" value={formatCurrency(booking.balanceAmount)} />
+          <DetailRow label="Status" value={booking.paymentStatus} />
+        </DetailCard>
+      )}
+
+      {isMonthly && paymentHistory.length > 0 && (
+        <DetailCard title="Monthly Payments" icon={Clock}>
+          {paymentHistory.map((record) => (
+            <div key={record.id || record.month} className="col-span-full mb-2 last:mb-0 pb-2 last:pb-0 border-b last:border-0 border-slate-100">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold">{record.month}</span>
+                <MonthlyPaymentStatusBadge status={record.paymentStatus || record.status} />
+              </div>
+              <DetailRow label="Rent" value={formatCurrency(record.totalRent ?? monthlyTenant.monthlyRent)} />
+              <DetailRow label="Paid" value={formatCurrency(record.totalPaid ?? 0)} />
+              {(record.balanceAmount ?? 0) > 0 && <DetailRow label="Balance" value={formatCurrency(record.balanceAmount)} />}
+              {record.payments?.map((p) => (
+                <p key={p.id} className="text-[10px] text-slate-600 pl-1">{formatCurrency(p.amount)} · {p.paymentMode}</p>
+              ))}
             </div>
           ))}
-        </div>
-      </div>
+        </DetailCard>
+      )}
 
-      <DetailCard title="Stay Information" icon={Building2} items={stayItems} />
+      <DocumentSection customer={{
+        ...customer,
+        aadhaarFront: customer.aadhaarFront || customer.aadhaar_front_url,
+        aadhaarBack: customer.aadhaarBack || customer.aadhaar_back_url,
+      }} />
 
-      <DetailCard
-        title="Payment Information"
-        icon={CreditCard}
-        items={[
-          { label: 'Advance Paid', value: booking ? formatCurrency(booking.advancePaid) : '—' },
-          { label: 'Total Amount', value: booking ? formatCurrency(booking.totalAmount) : '—' },
-          { label: 'Balance Amount', value: booking ? formatCurrency(booking.balanceAmount) : '—' },
-          { label: 'Payment Type', value: booking?.paymentType },
-          { label: 'Payment Status', value: booking?.paymentStatus },
-        ]}
-      />
+      {customer.notes && (
+        <DetailCard title="Notes" icon={User}>
+          <p className="col-span-full text-xs text-slate-700">{customer.notes}</p>
+        </DetailCard>
+      )}
 
       {booking?.extendedUpto && (
-        <DetailCard
-          title="Extended Stay"
-          icon={CalendarClock}
-          items={[
-            { label: 'Extended Upto', value: booking.extendedUpto ? new Date(booking.extendedUpto).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—' },
-            { label: 'Extension Amount', value: formatCurrency(booking.extendedAmount) },
-            { label: 'Extension Status', value: booking.extendedStatus },
-            { label: 'Extension Payment Type', value: booking.extendedPaymentType },
-            { label: 'Extension Payment Date', value: booking.extendedPaymentDate ? formatDate(String(booking.extendedPaymentDate).split('T')[0]) : '—' },
-          ]}
-        />
-      )}
-
-      {booking?.shifts?.length > 0 && (
-        <DetailCard
-          title="Room Shift History"
-          icon={ArrowRightLeft}
-          items={booking.shifts.flatMap((shift, index) => [
-            { label: `Shift ${index + 1} Date`, value: shift.shiftDate || shift.shift_date ? formatDate(shift.shiftDate || shift.shift_date) : '—' },
-            { label: `Shift ${index + 1} From`, value: `F${shift.oldFloorNumber ?? shift.old_floor_number} · R${shift.oldRoomNumber ?? shift.old_room_number} · B${shift.oldBedNumber ?? shift.old_bed_number}` },
-            { label: `Shift ${index + 1} To`, value: `F${shift.newFloorNumber ?? shift.new_floor_number} · R${shift.newRoomNumber ?? shift.new_room_number} · B${shift.newBedNumber ?? shift.new_bed_number}` },
-          ])}
-        />
-      )}
-
-      {isMonthly && monthlyTenant && (
-        <DetailCard
-          title="Monthly Rent Summary"
-          icon={Clock}
-          items={[
-            { label: 'Last Paid Month', value: monthlyTenant.lastPaidMonth },
-            { label: 'Current Status', value: monthlyTenant.status },
-            { label: 'Monthly Rent', value: formatCurrency(monthlyTenant.monthlyRent) },
-          ]}
-        />
+        <DetailCard title="Extended" icon={CalendarClock}>
+          <DetailRow label="Until" value={new Date(booking.extendedUpto).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} />
+          <DetailRow label="Amount" value={formatCurrency(booking.extendedAmount)} />
+        </DetailCard>
       )}
     </div>
   )

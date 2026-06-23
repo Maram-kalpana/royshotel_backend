@@ -1,11 +1,22 @@
 /** Helpers for monthly rent payments — replace with API calls when backend is ready */
 
-export const PAYMENT_MODES = ['Cash', 'UPI', 'Bank Transfer']
+export const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Bank Transfer']
+
+export const MODES_REQUIRING_TXN = ['UPI', 'Card', 'Bank Transfer']
 
 export const MONTHLY_PAYMENT_STATUS = {
   PAID: 'paid',
   PENDING: 'pending',
+  PARTIAL: 'partial',
   DUE_SOON: 'due_soon',
+}
+
+export const computePaymentStatus = (totalRent, totalPaid) => {
+  const rent = Number(totalRent) || 0
+  const paid = Number(totalPaid) || 0
+  if (paid <= 0) return MONTHLY_PAYMENT_STATUS.PENDING
+  if (paid >= rent) return MONTHLY_PAYMENT_STATUS.PAID
+  return MONTHLY_PAYMENT_STATUS.PARTIAL
 }
 
 export const getCurrentMonthYear = (date = new Date()) =>
@@ -78,6 +89,8 @@ export const getMonthlyStatusBadge = (status) => {
   switch (status) {
     case MONTHLY_PAYMENT_STATUS.PAID:
       return { label: 'Paid', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
+    case MONTHLY_PAYMENT_STATUS.PARTIAL:
+      return { label: 'Partial', className: 'bg-amber-100 text-amber-700 border-amber-200' }
     case MONTHLY_PAYMENT_STATUS.DUE_SOON:
       return { label: 'Due Soon', className: 'bg-amber-100 text-amber-700 border-amber-200' }
     default:
