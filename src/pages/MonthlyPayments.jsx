@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Tabs, Tab, Button, IconButton, Box } from '@mui/material'
+import { TextField, Button, IconButton, Box, MenuItem } from '@mui/material'
 import { Plus, History, CheckCircle, Pencil, Eye, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '../components/PageTransition'
@@ -11,10 +11,9 @@ import TenantForm from '../components/monthlyPayments/TenantForm'
 import CustomerDetailCards from '../components/CustomerDetailCards'
 import { MergedCell, GridActions } from '../components/tableCells'
 import { useMonthlyPayments, useAppDispatch, useHotel, useCustomers } from '../hooks/useStore'
-import DatePickerField from '../components/DatePickerField'
 import { formatCurrency, displayValue } from '../utils/helpers'
 import PageToolbar from '../components/PageToolbar'
-import { toolbarSearchSx, toolbarButtonSx } from '../utils/layout'
+import { toolbarEqualFieldSx, toolbarButtonSx } from '../utils/layout'
 import { loadMonthlyPayments, loadCustomers, loadRooms } from '../services/dataService'
 import { monthlyPaymentsApi } from '../services/endpoints'
 import {
@@ -25,9 +24,9 @@ import {
   MONTHLY_PAYMENT_STATUS,
 } from '../utils/monthlyPaymentHelpers'
 
-const TAB_ALL = 0
-const TAB_PAID = 1
-const TAB_PENDING = 2
+const FILTER_ALL = 'all'
+const FILTER_PAID = 'paid'
+const FILTER_PENDING = 'pending'
 
 const MonthlyPayments = () => {
   const { tenants } = useMonthlyPayments()
@@ -35,8 +34,7 @@ const MonthlyPayments = () => {
   const { list: customers } = useCustomers()
   const dispatch = useAppDispatch()
 
-  const [tab, setTab] = useState(TAB_ALL)
-  const [searchDate, setSearchDate] = useState('')
+  const [statusFilter, setStatusFilter] = useState(FILTER_ALL)
   const [historyTenant, setHistoryTenant] = useState(null)
   const [markPaidTenant, setMarkPaidTenant] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -78,45 +76,41 @@ const MonthlyPayments = () => {
 
   const filteredRows = useMemo(() => {
     let rows = tableRows
-    if (tab === TAB_PAID) {
+    if (statusFilter === FILTER_PAID) {
       rows = rows.filter((r) => r.status === MONTHLY_PAYMENT_STATUS.PAID)
-    } else if (tab === TAB_PENDING) {
+    } else if (statusFilter === FILTER_PENDING) {
       rows = rows.filter((r) => isCurrentMonthPending(r.tenant, currentMonth))
     }
-    if (searchDate) {
-      rows = rows.filter((r) => {
-        const customer = customers.find((c) => c.id === r.tenant.customerId)
-        const checkIn = (r.tenant.checkInDateTime || customer?.checkInDate || customer?.checkInDateTime || '').split('T')[0]
-        return checkIn === searchDate
-      })
-    }
     return rows
-  }, [tableRows, tab, currentMonth, searchDate, customers])
+  }, [tableRows, statusFilter, currentMonth])
 
   const editCustomer = editTenant ? customers.find((c) => c.id === editTenant.customerId) : null
 
   const buildTenantPayload = (data, bed) => ({
     name: data.name,
     customerName: data.name,
-    phone: data.phone,
-    address: data.address,
-    city: data.city,
-    state: data.state,
-    aadhaar: data.aadhaar,
-    pan: data.pan,
-    photo: data.photo,
-    aadhaarDoc: data.aadhaarDoc,
-    aadhaarFront: data.aadhaarFront,
-    aadhaarBack: data.aadhaarBack,
-    bedId: data.bedId,
-    roomNumber: bed?.roomNumber,
+    phone: data.phone ?? null,
+    address: data.address ?? null,
+    city: data.city ?? null,
+    state: data.state ?? null,
+    aadhaar: data.aadhaar ?? null,
+    pan: data.pan ?? null,
+    photo: data.photo ?? null,
+    aadhaarDoc: data.aadhaarDoc ?? null,
+    aadhaarFront: data.aadhaarFront ?? null,
+    aadhaarBack: data.aadhaarBack ?? null,
+    bedId: data.newBedId || data.bedId,
+    newBedId: data.newBedId || null,
+    shiftDate: data.shiftDate || null,
+    roomNumber: bed?.roomNumber ?? null,
     monthlyRent: data.monthlyRent,
     dueDay: data.dueDay || 1,
-    checkInDateTime: data.checkInDateTime,
-    advancePaid: data.advancePaid,
-    paymentType: data.paymentType,
-    paymentDate: data.paymentDate,
-    paymentStatus: data.paymentStatus,
+    checkInDateTime: data.checkInDateTime ?? null,
+    checkOutDateTime: data.checkOutDateTime ?? null,
+    advancePaid: data.advancePaid ?? 0,
+    paymentType: data.paymentType ?? null,
+    paymentDate: data.paymentDate ?? null,
+    paymentStatus: data.paymentStatus ?? null,
   })
 
   const handleAddTenant = async (data) => {
@@ -133,8 +127,17 @@ const MonthlyPayments = () => {
 
   const handleEditTenant = async (data) => {
     if (!editTenant) return
+    if (data.newBedId && (!data.newFloorId || !data.newRoomId)) {
+      toast.error('Please complete the room shift selection')
+      return
+    }
+    if (data.newBedId && !data.shiftDate) {
+      toast.error('Please select a shift date')
+      return
+    }
     try {
-      const bed = beds.find((b) => b.id === data.bedId)
+      const targetBedId = data.newBedId || data.bedId
+      const bed = beds.find((b) => b.id === targetBedId)
       await monthlyPaymentsApi.update(editTenant.id, {
         ...buildTenantPayload(data, bed),
         customerName: data.name,
@@ -261,15 +264,21 @@ const MonthlyPayments = () => {
 
   return (
     <PageTransition className="page-container">
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ minHeight: 44, mb: 1.5, borderBottom: '1px solid #e2e8f0' }}>
-        <Tab label="All Tenants" sx={{ minHeight: 44, py: 1, fontSize: '0.8125rem' }} />
-        <Tab label="Paid" sx={{ minHeight: 44, py: 1, fontSize: '0.8125rem' }} />
-        <Tab label="Pending" sx={{ minHeight: 44, py: 1, fontSize: '0.8125rem' }} />
-      </Tabs>
-
       <PageToolbar
         filters={(
-          <DatePickerField label="Search By Date" value={searchDate} onChange={setSearchDate} sx={toolbarSearchSx} />
+          <TextField
+            select
+            label="Filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            sx={{ ...toolbarEqualFieldSx, maxWidth: { md: 200 } }}
+            size="small"
+            SelectProps={{ MenuProps: { sx: { zIndex: 1600 } } }}
+          >
+            <MenuItem value={FILTER_ALL}>All Tenants</MenuItem>
+            <MenuItem value={FILTER_PAID}>Paid</MenuItem>
+            <MenuItem value={FILTER_PENDING}>Pending</MenuItem>
+          </TextField>
         )}
         action={(
           <Button variant="contained" startIcon={<Plus size={18} />} onClick={openAdd} sx={toolbarButtonSx}>

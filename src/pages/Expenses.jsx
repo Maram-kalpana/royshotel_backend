@@ -12,11 +12,11 @@ import { loadExpenses } from '../services/dataService'
 import { expensesApi } from '../services/endpoints'
 import { formatCurrency, formatDate } from '../utils/helpers'
 import PageToolbar from '../components/PageToolbar'
-import { filterFieldSx, fieldSx, primaryButtonSx, toolbarSearchSx, toolbarButtonSx, compactDateFilterSx } from '../utils/layout'
+import { filterFieldSx, fieldSx, primaryButtonSx, expenseFilterFieldSx, toolbarButtonSx } from '../utils/layout'
 import { GridActions } from '../components/tableCells'
 import FileUpload from '../components/FileUpload'
 
-const compactFilterSx = compactDateFilterSx
+const compactFilterSx = expenseFilterFieldSx
 
 const TYPE_LABELS = {
   maintenance: 'Maintenance',
@@ -222,7 +222,7 @@ const Expenses = () => {
                 label="Date"
                 value={filterDate}
                 onChange={setFilterDate}
-                sx={{ ...compactDateFilterSx, flex: '0 0 auto', minWidth: { xs: 100, sm: 120 } }}
+                sx={expenseFilterFieldSx}
               />
               <TextField
                 label="Search"
@@ -230,7 +230,7 @@ const Expenses = () => {
                 value={searchDescription}
                 onChange={(e) => setSearchDescription(e.target.value)}
                 size="small"
-                sx={{ ...toolbarSearchSx, minWidth: { xs: 80, sm: 120 } }}
+                sx={expenseFilterFieldSx}
               />
               <Box
                 sx={{

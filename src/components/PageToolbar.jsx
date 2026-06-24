@@ -18,11 +18,8 @@ const PageToolbar = ({ filters, action, secondary, sx }) => (
           gap: 1,
           flex: 1,
           minWidth: 0,
-          flexWrap: { xs: 'nowrap', md: 'wrap' },
-          overflow: { xs: 'auto', md: 'visible' },
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none',
-          '&::-webkit-scrollbar': { display: 'none' },
+          flexWrap: { xs: 'wrap', lg: 'nowrap' },
+          overflow: 'visible',
         }}
       >
         {filters}

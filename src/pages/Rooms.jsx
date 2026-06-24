@@ -235,28 +235,15 @@ const Rooms = () => {
 
   const compactColumns = useMemo(() => [
     {
-      field: 'roomInfo',
-      headerName: 'Room',
+      field: 'roomBed',
+      headerName: 'Room / Bed',
       flex: 1,
-      minWidth: 100,
+      minWidth: 120,
       allowWrap: true,
       renderCell: ({ row }) => (
         <MergedCell lines={[
-          `Floor ${row.floorNumber} · Room ${row.roomNumber}`,
-          row.acType,
-        ]} />
-      ),
-    },
-    {
-      field: 'bedInfo',
-      headerName: 'Bed',
-      flex: 1,
-      minWidth: 80,
-      allowWrap: true,
-      renderCell: ({ row }) => (
-        <MergedCell lines={[
-          `Bed ${row.bedNumber}`,
-          row.bedType,
+          `Floor ${row.floorNumber} · Room ${row.roomNumber} · ${row.acType}`,
+          `Bed ${row.bedNumber} · ${row.bedType}`,
         ]} />
       ),
     },

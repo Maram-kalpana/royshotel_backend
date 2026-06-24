@@ -162,15 +162,21 @@ export const updateBooking = async (id, data) => {
     const balance = data.balanceAmount != null
       ? Number(data.balanceAmount)
       : Math.max(0, Number(data.totalAmount) - Number(data.advancePaid || 0))
+    const balanceSettled = balance <= 0
+      || data.paymentStatus === 'completed'
+      || data.balancePaymentStatus === 'completed'
+      || balancePaymentAmount > 0
     const isCheckout = Boolean(toDateTimeOrNull(data.checkOutDateTime))
       && ['checked-out', 'completed'].includes(data.status || booking.status)
 
-    if (isCheckout && balance > 0) {
+    if (isCheckout && !balanceSettled && balance > 0) {
       throw Object.assign(
         new Error(`Cannot checkout while balance of ₹${balance} is pending`),
         { status: 400 },
       )
     }
+
+    const storedBalance = balanceSettled ? 0 : balance
 
     let bedId = booking.bed_id
     let roomId = booking.room_id
@@ -222,7 +228,7 @@ export const updateBooking = async (id, data) => {
         floorNumber,
         data.totalAmount,
         data.advancePaid,
-        balance,
+        storedBalance,
         data.paymentType,
         data.paymentStatus,
         toDateTimeOrNull(data.checkOutDateTime),

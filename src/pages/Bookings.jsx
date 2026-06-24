@@ -10,10 +10,11 @@ import { combineDateAndTime, splitDateTime } from '../components/DateTimeSplitFi
 import BookingForm from '../components/BookingForm'
 import BookingEditForm from '../components/BookingEditForm'
 import CustomerDetailCards from '../components/CustomerDetailCards'
+import { MergedCell, VerticalActions, CompactIconButton } from '../components/tableCells'
 import { useAuth, useAppDispatch, useHotel, useBookings, useCustomers, useMonthlyPayments } from '../hooks/useStore'
 import { formatCurrency, ROLES, getPaymentStatus, formatStayDuration } from '../utils/helpers'
 import PageToolbar from '../components/PageToolbar'
-import { filterFieldSx, primaryButtonSx, toolbarSearchSx, toolbarButtonSx, compactDateFilterSx } from '../utils/layout'
+import { filterFieldSx, primaryButtonSx, toolbarEqualFieldSx, toolbarButtonSx } from '../utils/layout'
 import { loadBookings, loadCustomers, loadRooms } from '../services/dataService'
 import { bookingsApi } from '../services/endpoints'
 
@@ -218,8 +219,10 @@ const BookingsContent = () => {
       advancePaid: String(b.advancePaid ?? 0),
       advancePaymentType: b.paymentType || 'Cash',
       advancePaymentDate: b.checkInDateTime?.split('T')[0] || today,
+      advancePaymentStatus: b.paymentStatus === 'completed' ? 'completed' : 'pending',
       balancePaymentType: b.paymentType || 'Cash',
-      balancePaymentDate: '',
+      balancePaymentDate: b.paymentStatus === 'completed' && b.balanceAmount <= 0 ? today : '',
+      balancePaymentStatus: b.paymentStatus === 'completed' ? 'completed' : 'pending',
       paymentStatus: b.paymentStatus || getPaymentStatus(b.balanceAmount),
       checkOutDate: checkout.date,
       checkOutTime: checkout.time || '12:00',
@@ -254,6 +257,8 @@ const BookingsContent = () => {
     const newTotal = Number(editForm.totalAmount) || editBooking.totalAmount || 0
     const newAdvance = Number(editForm.advancePaid) || 0
     const newBalance = Math.max(0, newTotal - newAdvance)
+    const balanceMarkedPaid = editForm.balancePaymentStatus === 'completed'
+    const effectiveBalance = balanceMarkedPaid ? 0 : newBalance
 
     const payload = {
       customerId: editBooking.customerId,
@@ -267,9 +272,10 @@ const BookingsContent = () => {
       pan: editForm.pan,
       totalAmount: newTotal,
       advancePaid: newAdvance,
-      balanceAmount: newBalance,
+      balanceAmount: effectiveBalance,
       paymentType: editForm.advancePaymentType,
-      paymentStatus: editForm.paymentStatus,
+      balancePaymentStatus: editForm.balancePaymentStatus,
+      paymentStatus: balanceMarkedPaid ? 'completed' : editForm.paymentStatus,
       checkOutDateTime: editBooking.checkOutDateTime,
       extendedUpto: editBooking.extendedUpto,
       extendedAmount: editBooking.extendedAmount,
@@ -279,12 +285,20 @@ const BookingsContent = () => {
       status: editBooking.status,
     }
 
-    if (editForm.balancePaymentDate && newBalance > 0) {
+    if (balanceMarkedPaid && newBalance > 0) {
+      payload.balancePaymentAmount = newBalance
+      payload.balancePaymentType = editForm.balancePaymentType || 'Cash'
+      if (editForm.balancePaymentDate) {
+        payload.balancePaymentDate = combineDateAndTime(editForm.balancePaymentDate, editForm.paymentTime || '12:00')
+        payload.paymentType = editForm.balancePaymentType || 'Cash'
+      }
+    } else if (editForm.balancePaymentDate && newBalance > 0) {
       payload.balancePaymentDate = combineDateAndTime(editForm.balancePaymentDate, editForm.paymentTime || '12:00')
       payload.balancePaymentAmount = newBalance
       payload.balancePaymentType = editForm.balancePaymentType
       payload.paymentType = editForm.balancePaymentType
       payload.paymentStatus = 'completed'
+      payload.balanceAmount = 0
     }
 
     const checkoutChanged = editSnapshot && (
@@ -317,7 +331,7 @@ const BookingsContent = () => {
       if (extAmount > 0) {
         payload.extendedAmount = (editBooking.extendedAmount || 0) + extAmount
         payload.totalAmount = newTotal + extAmount
-        payload.balanceAmount = (payload.balanceAmount ?? newBalance) + extAmount
+        payload.balanceAmount = (payload.balanceAmount ?? effectiveBalance) + extAmount
       }
       payload.extendedStatus = editForm.extendedStatus
       payload.extendedPaymentType = editForm.extendedPaymentType
@@ -388,8 +402,43 @@ const BookingsContent = () => {
     },
   ], [])
 
+  const compactColumns = useMemo(() => [
+    {
+      field: 'details',
+      headerName: 'Booking',
+      compactWidth: '58%',
+      allowWrap: true,
+      renderCell: ({ row }) => (
+        <MergedCell lines={[
+          row.customerName,
+          row.phone,
+          `R${row.roomNumber ?? '—'} · B${row.bedNumber ?? '—'}`,
+        ]} />
+      ),
+    },
+    {
+      field: 'totalAmount',
+      headerName: 'Amt',
+      compactWidth: '20%',
+      valueFormatter: (v) => formatCurrency(v),
+    },
+    {
+      field: 'actions',
+      headerName: '',
+      compactWidth: '22%',
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <VerticalActions>
+          <CompactIconButton color="primary" onClick={() => setViewBooking(row.booking)} title="View"><Eye /></CompactIconButton>
+          <CompactIconButton color="info" onClick={() => openEdit(row)} title="Edit"><Pencil /></CompactIconButton>
+          <CompactIconButton color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 /></CompactIconButton>
+        </VerticalActions>
+      ),
+    },
+  ], [])
+
   const columns = bookingColumns
-  const compactColumns = bookingColumns
 
   const viewCustomer = viewBooking ? customers.find((c) => c.id === viewBooking.customerId) : null
   const viewBed = viewBooking ? beds.find((b) => b.id === viewBooking.bedId) : null
@@ -401,30 +450,32 @@ const BookingsContent = () => {
         filters={(
           <>
             <TextField
-              label="Search"
               placeholder="Search..."
+              label="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              sx={{ ...toolbarSearchSx, minWidth: { xs: 80, sm: 120 } }}
+              sx={toolbarEqualFieldSx}
               size="small"
+              InputLabelProps={{ sx: { display: { xs: 'none', sm: 'block' } } }}
             />
             <DatePickerField
               label="Booking Date"
               value={bookingDate}
               onChange={setBookingDate}
-              sx={{ ...compactDateFilterSx, flex: '0 0 auto', minWidth: { xs: 110, sm: 130 } }}
+              sx={toolbarEqualFieldSx}
             />
             <TextField
               select
               label="Status"
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              sx={{ ...compactDateFilterSx, flex: '0 0 auto', minWidth: { xs: 90, sm: 110 } }}
+              sx={toolbarEqualFieldSx}
               size="small"
+              SelectProps={{ MenuProps: { sx: { zIndex: 1600 } } }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="completed">Completed</MenuItem>
+              <MenuItem value="completed">Paid</MenuItem>
             </TextField>
           </>
         )}

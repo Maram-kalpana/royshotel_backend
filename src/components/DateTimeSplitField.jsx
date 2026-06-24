@@ -1,42 +1,38 @@
-import { Box } from '@mui/material'
+import { TextField, Box } from '@mui/material'
 import DatePickerField from './DatePickerField'
 import { fieldSx } from '../utils/layout'
 
-const compactFieldSx = {
+const timeFieldSx = {
   ...fieldSx,
-  flex: 1,
-  minWidth: 0,
+  width: '100%',
 }
 
-/** Separate date + native time inputs — cleaner than combined DateTimePicker popover */
-const DateTimeSplitField = ({ dateLabel, timeLabel, dateValue, timeValue, onDateChange, onTimeChange, required }) => (
-  <Box sx={{ display: 'flex', gap: 1.5, width: '100%' }}>
+/** Stacked date picker + time field — works in narrow drawers */
+const DateTimeSplitField = ({
+  dateLabel,
+  timeLabel,
+  dateValue,
+  timeValue,
+  onDateChange,
+  onTimeChange,
+  required,
+}) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%', gridColumn: '1 / -1' }}>
     <DatePickerField
       label={dateLabel}
       value={dateValue}
       onChange={onDateChange}
-      sx={compactFieldSx}
     />
-    <Box
-      component="input"
+    <TextField
       type="time"
+      label={timeLabel}
       value={timeValue || ''}
       required={required}
       onChange={(e) => onTimeChange(e.target.value)}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        height: 44,
-        padding: '0 12px',
-        border: '1px solid #cbd5e1',
-        borderRadius: 4,
-        fontSize: '0.875rem',
-        fontFamily: 'Inter, sans-serif',
-        color: '#334155',
-        backgroundColor: '#fff',
-        outline: 'none',
-      }}
-      aria-label={timeLabel}
+      InputLabelProps={{ shrink: true }}
+      sx={timeFieldSx}
+      size="small"
+      fullWidth
     />
   </Box>
 )

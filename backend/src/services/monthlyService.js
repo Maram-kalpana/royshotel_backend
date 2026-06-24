@@ -15,6 +15,22 @@ const mapSplit = (row) => ({
   notes: row.notes || '',
 })
 
+const isAdvanceOnlySplit = (splits) =>
+  splits.length > 0 && splits.every((s) => (s.notes || '').toLowerCase().includes('advance'))
+
+const resolveLastPaidRentMonth = (paymentHistory, splitsByPayment = {}) => {
+  for (const p of paymentHistory) {
+    const splits = splitsByPayment[p.id] || []
+    if (isAdvanceOnlySplit(splits)) continue
+    const rent = Number(p.monthly_rent)
+    const paid = Number(p.amount_paid ?? 0)
+    if (p.status === 'paid' && paid >= rent) {
+      return p.month_label
+    }
+  }
+  return null
+}
+
 const mapPaymentRecord = (row, splits = []) => {
   const totalRent = Number(row.monthly_rent)
   const totalPaid = Number(row.amount_paid ?? 0)
@@ -49,10 +65,14 @@ const mapTenant = (row, paymentHistory = [], splitsByPayment = {}) => ({
   bedId: row.bed_id,
   monthlyRent: Number(row.monthly_rent),
   dueDay: row.due_day,
-  lastPaidMonth: row.last_paid_month,
+  lastPaidMonth: resolveLastPaidRentMonth(paymentHistory, splitsByPayment),
   status: row.status,
   paymentHistory: paymentHistory
-    .filter((p) => Number(p.amount_paid ?? 0) > 0 || splitsByPayment[p.id]?.length > 0)
+    .filter((p) => {
+      const splits = splitsByPayment[p.id] || []
+      if (isAdvanceOnlySplit(splits)) return false
+      return Number(p.amount_paid ?? 0) > 0 || splits.length > 0
+    })
     .map((p) => mapPaymentRecord(p, splitsByPayment[p.id] || [])),
 })
 
@@ -81,25 +101,26 @@ const loadTenantHistory = async (tenantId) => {
 }
 
 const syncTenantStatus = async (tenantId) => {
-  const [records] = await query(
-    `SELECT status FROM monthly_payments WHERE tenant_id = ? ORDER BY due_date DESC`,
+  const [history] = await query(
+    'SELECT * FROM monthly_payments WHERE tenant_id = ? ORDER BY due_date DESC',
     [tenantId],
   )
   const [tenantRows] = await query('SELECT * FROM monthly_tenants WHERE id = ?', [tenantId])
-  const tenant = tenantRows[0]
-  if (!tenant) return
+  if (!tenantRows[0]) return
 
-  const hasPartial = records.some((r) => r.status === 'partial')
-  const hasPending = records.some((r) => r.status === 'pending')
-  const latestPaid = records.find((r) => r.status === 'paid')
+  const hasPartial = history.some((r) => r.status === 'partial')
+  const hasPending = history.some((r) => r.status === 'pending')
 
   let status = 'paid'
   if (hasPartial) status = 'partial'
   else if (hasPending) status = 'pending'
 
+  const splitsByPayment = await loadSplitsForPayments(history.map((h) => h.id))
+  const lastPaidMonth = resolveLastPaidRentMonth(history, splitsByPayment)
+
   await query(
     'UPDATE monthly_tenants SET status=?, last_paid_month=? WHERE id=?',
-    [status, latestPaid ? tenant.last_paid_month : tenant.last_paid_month, tenantId],
+    [status, lastPaidMonth, tenantId],
   )
 }
 
@@ -367,44 +388,20 @@ export const createTenant = async (data) => {
       [tenantId, customerId, customerName, bed.room_number, data.bedId, monthlyRent, dueDay, 'pending'],
     )
 
-    if (advancePaid > 0) {
-      const monthLabel = getMonthYearLabel()
-      const dueDateObj = new Date()
-      dueDateObj.setDate(dueDay)
-      const dueDate = dueDateObj.toISOString().split('T')[0]
-      const paymentId = generateId('mpay')
-      const paymentStatus = data.paymentStatus === 'completed' || data.paymentStatus === 'paid'
-        ? 'paid'
-        : computePaymentStatus(monthlyRent, advancePaid)
+    const monthLabel = getMonthYearLabel()
+    const dueDateObj = new Date()
+    dueDateObj.setDate(dueDay)
+    const dueDate = dueDateObj.toISOString().split('T')[0]
+    const paymentId = generateId('mpay')
 
-      await conn.execute(
-        `INSERT INTO monthly_payments (id, tenant_id, customer_id, room_number, month_label, monthly_rent, due_date, amount_paid, pending_amount, payment_mode, payment_date, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          paymentId, tenantId, customerId, bed.room_number, monthLabel, monthlyRent, dueDate,
-          advancePaid, Math.max(0, monthlyRent - advancePaid),
-          data.paymentType || 'Cash',
-          data.paymentDate || checkInDate,
-          paymentStatus,
-        ],
-      )
-
-      await conn.execute(
-        `INSERT INTO monthly_payment_splits (id, monthly_payment_id, amount, payment_mode, transaction_id, payment_date, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          generateId('split'), paymentId, advancePaid, data.paymentType || 'Cash',
-          data.transactionId || null, data.paymentDate || checkInDate, 'Advance payment',
-        ],
-      )
-
-      if (paymentStatus === 'paid') {
-        await conn.execute(
-          'UPDATE monthly_tenants SET last_paid_month=?, status="paid" WHERE id=?',
-          [monthLabel, tenantId],
-        )
-      }
-    }
+    await conn.execute(
+      `INSERT INTO monthly_payments (id, tenant_id, customer_id, room_number, month_label, monthly_rent, due_date, amount_paid, pending_amount, payment_mode, payment_date, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        paymentId, tenantId, customerId, bed.room_number, monthLabel, monthlyRent, dueDate,
+        0, monthlyRent, null, null, 'pending',
+      ],
+    )
 
     await conn.execute('UPDATE beds SET status="occupied", customer_id=? WHERE id=?', [customerId, bed.id])
     await conn.commit()
@@ -453,42 +450,91 @@ export const listPending = async () => {
 export const listPaid = async () => listDues({ status: 'paid' })
 
 export const updateTenant = async (id, data) => {
-  const [existingRows] = await query('SELECT * FROM monthly_tenants WHERE id = ?', [id])
-  const existing = existingRows[0]
-  if (!existing) throw Object.assign(new Error('Tenant not found'), { status: 404 })
+  const nullish = (v) => (v === undefined ? null : v)
+  const conn = await getConnection()
 
-  if (existing.customer_id) {
-    await query(
-      `UPDATE customers SET name=?, phone=?, address=?, city=?, state=?, aadhaar=?, pan=?,
-        photo_url=COALESCE(?, photo_url), aadhaar_doc_url=COALESCE(?, aadhaar_doc_url),
-        aadhaar_front_url=COALESCE(?, aadhaar_front_url), aadhaar_back_url=COALESCE(?, aadhaar_back_url),
-        pan_doc_url=COALESCE(?, pan_doc_url), driving_license_url=COALESCE(?, driving_license_url),
-        notes=COALESCE(?, notes), monthly_rent=?, due_day=?
-       WHERE id=?`,
+  try {
+    await conn.beginTransaction()
+
+    const [existingRows] = await conn.execute('SELECT * FROM monthly_tenants WHERE id = ? FOR UPDATE', [id])
+    const existing = existingRows[0]
+    if (!existing) throw Object.assign(new Error('Tenant not found'), { status: 404 })
+
+    let bedId = existing.bed_id
+    let roomNumber = data.roomNumber ?? existing.room_number
+
+    if (data.newBedId && data.newBedId !== existing.bed_id) {
+      const [newBeds] = await conn.execute('SELECT * FROM beds WHERE id = ? FOR UPDATE', [data.newBedId])
+      const newBed = newBeds[0]
+      if (!newBed || newBed.status !== 'vacant') {
+        throw Object.assign(new Error('Selected bed is not available'), { status: 400 })
+      }
+
+      await conn.execute('UPDATE beds SET status="vacant", customer_id=NULL WHERE id=?', [existing.bed_id])
+      await conn.execute('UPDATE beds SET status="occupied", customer_id=? WHERE id=?', [existing.customer_id, newBed.id])
+
+      bedId = newBed.id
+      roomNumber = newBed.room_number
+
+      await conn.execute(
+        `UPDATE customers SET room_id=?, bed_id=?, room_number=?, bed_number=?, floor_number=? WHERE id=?`,
+        [newBed.room_id, newBed.id, newBed.room_number, newBed.bed_number, newBed.floor_number, existing.customer_id],
+      )
+    }
+
+    if (existing.customer_id) {
+      await conn.execute(
+        `UPDATE customers SET name=?, phone=?, address=?, city=?, state=?, aadhaar=?, pan=?,
+          photo_url=COALESCE(?, photo_url), aadhaar_doc_url=COALESCE(?, aadhaar_doc_url),
+          aadhaar_front_url=COALESCE(?, aadhaar_front_url), aadhaar_back_url=COALESCE(?, aadhaar_back_url),
+          pan_doc_url=COALESCE(?, pan_doc_url), driving_license_url=COALESCE(?, driving_license_url),
+          notes=COALESCE(?, notes), monthly_rent=?, due_day=?, security_deposit=COALESCE(?, security_deposit),
+          check_out_datetime=COALESCE(?, check_out_datetime)
+         WHERE id=?`,
+        [
+          nullish(data.name) || nullish(data.customerName) || existing.customer_name,
+          nullish(data.phone),
+          nullish(data.address),
+          nullish(data.city),
+          nullish(data.state),
+          nullish(data.aadhaar),
+          nullish(data.pan),
+          nullish(data.photo),
+          nullish(data.aadhaarDoc),
+          nullish(data.aadhaarFront),
+          nullish(data.aadhaarBack),
+          nullish(data.panDoc),
+          nullish(data.drivingLicense),
+          nullish(data.notes),
+          data.monthlyRent ?? existing.monthly_rent,
+          data.dueDay ?? existing.due_day,
+          data.advancePaid != null ? Number(data.advancePaid) : null,
+          nullish(data.checkOutDateTime),
+          existing.customer_id,
+        ],
+      )
+    }
+
+    await conn.execute(
+      `UPDATE monthly_tenants SET customer_name=?, room_number=?, bed_id=?, monthly_rent=?, due_day=? WHERE id=?`,
       [
-        data.name || data.customerName || existing.customer_name,
-        data.phone, data.address, data.city, data.state, data.aadhaar, data.pan,
-        data.photo, data.aadhaarDoc, data.aadhaarFront, data.aadhaarBack,
-        data.panDoc, data.drivingLicense, data.notes,
+        data.customerName || data.name || existing.customer_name,
+        roomNumber,
+        bedId,
         data.monthlyRent ?? existing.monthly_rent,
         data.dueDay ?? existing.due_day,
-        existing.customer_id,
+        id,
       ],
     )
+
+    await conn.commit()
+    return getTenant(id)
+  } catch (err) {
+    await conn.rollback()
+    throw err
+  } finally {
+    conn.release()
   }
-
-  await query(
-    `UPDATE monthly_tenants SET customer_name=?, room_number=?, monthly_rent=?, due_day=? WHERE id=?`,
-    [
-      data.customerName || data.name || existing.customer_name,
-      data.roomNumber ?? existing.room_number,
-      data.monthlyRent ?? existing.monthly_rent,
-      data.dueDay ?? existing.due_day,
-      id,
-    ],
-  )
-
-  return getTenant(id)
 }
 
 export const refreshPendingStatuses = async () => {

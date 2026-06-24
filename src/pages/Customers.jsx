@@ -7,14 +7,14 @@ import MuiDataGrid from '../components/MuiDataGrid'
 import DatePickerField from '../components/DatePickerField'
 import RightDrawer from '../components/RightDrawer'
 import CustomerDetailCards from '../components/CustomerDetailCards'
-import { MergedCell, GridActions } from '../components/tableCells'
+import { MergedCell, VerticalActions, CompactIconButton } from '../components/tableCells'
 import { useCustomers, useHotel, useBookings, useMonthlyPayments } from '../hooks/useStore'
 import {
   formatCurrency, displayValue, mapStayTypeLabel,
   formatCheckInDateTime, formatCheckOutDateTime,
 } from '../utils/helpers'
 import PageToolbar from '../components/PageToolbar'
-import { filterFieldSx, toolbarSearchSx } from '../utils/layout'
+import { filterFieldSx, toolbarSearchCompactSx } from '../utils/layout'
 import { loadCustomers } from '../services/dataService'
 import { customersApi } from '../services/endpoints'
 import { useAppDispatch } from '../hooks/useStore'
@@ -95,39 +95,29 @@ const Customers = () => {
 
   const compactColumns = useMemo(() => [
     {
-      field: 'customerInfo',
+      field: 'details',
       headerName: 'Customer',
-      flex: 1,
-      minWidth: 110,
+      compactWidth: '82%',
       allowWrap: true,
-      renderCell: ({ row }) => <MergedCell lines={[row.name, row.phone]} />,
-    },
-    {
-      field: 'roomStay',
-      headerName: 'Room & Stay',
-      width: 72,
-      minWidth: 68,
-      allowWrap: true,
-      renderCell: ({ row }) => <MergedCell lines={[`Room ${row.roomNumber}`, row.stayType]} />,
-    },
-    {
-      field: 'amount',
-      headerName: 'Amount',
-      width: 72,
-      minWidth: 68,
-      valueFormatter: (v) => formatCurrency(v),
+      renderCell: ({ row }) => (
+        <MergedCell lines={[
+          row.name,
+          row.phone,
+          `Room ${row.roomNumber} · ${row.stayType}`,
+        ]} />
+      ),
     },
     {
       field: 'actions',
-      headerName: 'Actions',
-      width: 52,
+      headerName: '',
+      compactWidth: '18%',
       sortable: false,
       filterable: false,
       renderCell: ({ row }) => (
-        <GridActions>
-          <IconButton size="small" color="info" onClick={() => openView(row)} title="View"><Eye size={15} /></IconButton>
-          <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={15} /></IconButton>
-        </GridActions>
+        <VerticalActions>
+          <CompactIconButton color="info" onClick={() => openView(row)} title="View"><Eye /></CompactIconButton>
+          <CompactIconButton color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 /></CompactIconButton>
+        </VerticalActions>
       ),
     },
   ], [])
@@ -160,7 +150,7 @@ const Customers = () => {
       <PageToolbar
         filters={(
           <>
-            <TextField label="Search" placeholder="Search customer..." value={search} onChange={(e) => setSearch(e.target.value)} sx={toolbarSearchSx} size="small" />
+            <TextField label="Search" placeholder="Search customer..." value={search} onChange={(e) => setSearch(e.target.value)} sx={toolbarSearchCompactSx} size="small" />
             <DatePickerField label="Check-In Date" value={checkInDate} onChange={setCheckInDate} sx={{ ...filterFieldSx, flex: { xs: '0 0 auto', md: '1 1 180px' }, minWidth: { xs: 130, md: 180 }, display: { xs: 'none', sm: 'block' } }} />
           </>
         )}

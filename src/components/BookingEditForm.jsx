@@ -2,12 +2,12 @@ import { useMemo } from 'react'
 import { TextField, MenuItem, Typography, Box } from '@mui/material'
 import DatePickerField from './DatePickerField'
 import DateTimeSplitField, { splitDateTime } from './DateTimeSplitField'
+import PaymentStatusSelect from './PaymentStatusSelect'
 import { formatCurrency } from '../utils/helpers'
 import { fieldSx, drawerFormStackSx, amountFieldSx, drawerSectionSx } from '../utils/layout'
 
 const paymentTypes = ['Cash', 'UPI', 'Card', 'Bank Transfer']
-const rowSx = { display: 'flex', gap: 1.5, width: '100%', flexWrap: { xs: 'wrap', sm: 'nowrap' } }
-const thirdFieldSx = { ...fieldSx, flex: 1, minWidth: { xs: '100%', sm: 0 } }
+const selectMenuProps = { sx: { zIndex: 1600 }, PaperProps: { sx: { maxHeight: 280 } } }
 
 const Section = ({ title, children }) => (
   <Box sx={{ ...drawerSectionSx }}>
@@ -18,7 +18,6 @@ const Section = ({ title, children }) => (
 
 const BookingEditForm = ({
   booking,
-  customer,
   floors,
   rooms,
   beds,
@@ -51,39 +50,32 @@ const BookingEditForm = ({
   )
 
   const checkIn = splitDateTime(booking.checkInDateTime || booking.checkInDate || '')
+  const extended = splitDateTime(booking.extendedUpto || '')
   const balanceAmount = Math.max(0, (Number(form.totalAmount) || 0) - (Number(form.advancePaid) || 0))
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <Section title="Customer Information">
-        <TextField fullWidth label="Full Name" value={form.name} onChange={(e) => onChange({ name: e.target.value })} sx={fieldSx} />
-        <TextField fullWidth label="Phone" value={form.phone} onChange={(e) => onChange({ phone: e.target.value })} sx={fieldSx} />
-        <TextField fullWidth label="Address" value={form.address} onChange={(e) => onChange({ address: e.target.value })} sx={fieldSx} />
-        <Box sx={rowSx}>
-          <TextField fullWidth label="City" value={form.city} onChange={(e) => onChange({ city: e.target.value })} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField fullWidth label="State" value={form.state} onChange={(e) => onChange({ state: e.target.value })} sx={{ ...fieldSx, flex: 1 }} />
-        </Box>
+        <TextField fullWidth label="Full Name" value={form.name} onChange={(e) => onChange({ name: e.target.value })} sx={fieldSx} size="small" />
+        <TextField fullWidth label="Phone" value={form.phone} onChange={(e) => onChange({ phone: e.target.value })} sx={fieldSx} size="small" />
+        <TextField fullWidth label="Address" value={form.address} onChange={(e) => onChange({ address: e.target.value })} sx={fieldSx} size="small" />
+        <TextField fullWidth label="City" value={form.city} onChange={(e) => onChange({ city: e.target.value })} sx={fieldSx} size="small" />
+        <TextField fullWidth label="State" value={form.state} onChange={(e) => onChange({ state: e.target.value })} sx={fieldSx} size="small" />
       </Section>
 
       <Section title="Identity Information">
-        <TextField fullWidth label="Aadhaar Number" value={form.aadhaar} onChange={(e) => onChange({ aadhaar: e.target.value })} sx={fieldSx} />
-        <TextField fullWidth label="PAN Number" value={form.pan} onChange={(e) => onChange({ pan: e.target.value })} sx={fieldSx} />
+        <TextField fullWidth label="Aadhaar Number" value={form.aadhaar} onChange={(e) => onChange({ aadhaar: e.target.value })} sx={fieldSx} size="small" />
+        <TextField fullWidth label="PAN Number" value={form.pan} onChange={(e) => onChange({ pan: e.target.value })} sx={fieldSx} size="small" />
       </Section>
 
       <Section title="Booking Information">
-        <Box sx={rowSx}>
-          <TextField label="Floor" value={booking.floorNumber ?? '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField label="Room" value={booking.roomNumber ?? '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField label="Bed" value={booking.bedNumber ?? '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-        </Box>
-        <Box sx={rowSx}>
-          <TextField label="Duration" value={booking.duration ?? '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField label="Stay Type" value={booking.stayType ?? '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-        </Box>
-        <Box sx={rowSx}>
-          <TextField label="Check-In Date" value={checkIn.date || '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField label="Check-In Time" value={checkIn.time || '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-        </Box>
+        <TextField label="Floor" value={booking.floorNumber ?? '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" fullWidth />
+        <TextField label="Room" value={booking.roomNumber ?? '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" fullWidth />
+        <TextField label="Bed" value={booking.bedNumber ?? '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" fullWidth />
+        <TextField label="Duration" value={booking.duration ?? '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" fullWidth />
+        <TextField label="Stay Type" value={booking.stayType ?? '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" fullWidth />
+        <TextField label="Check-In Date" value={checkIn.date || '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" fullWidth />
+        <TextField label="Check-In Time" value={checkIn.time || '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" fullWidth />
         <DateTimeSplitField
           dateLabel="Check-Out Date"
           timeLabel="Check-Out Time"
@@ -95,114 +87,109 @@ const BookingEditForm = ({
       </Section>
 
       <Section title="Payment Information">
-        <Box sx={rowSx}>
-          <TextField
-            fullWidth
-            type="number"
-            label="Total Amount"
-            value={form.totalAmount}
-            onChange={(e) => onChange({ totalAmount: e.target.value })}
-            sx={{ ...amountFieldSx, flex: 1 }}
-          />
-        </Box>
-
-        <Box sx={rowSx}>
-          <TextField
-            fullWidth
-            type="number"
-            label="Advance"
-            value={form.advancePaid}
-            onChange={(e) => onChange({ advancePaid: e.target.value })}
-            sx={thirdFieldSx}
-          />
-          <TextField select fullWidth label="Advance Payment Type" value={form.advancePaymentType} onChange={(e) => onChange({ advancePaymentType: e.target.value })} sx={thirdFieldSx}>
-            {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-          </TextField>
-          <DatePickerField
-            label="Advance Payment Date"
-            value={form.advancePaymentDate}
-            onChange={(v) => onChange({ advancePaymentDate: v })}
-            sx={thirdFieldSx}
-          />
-        </Box>
-        <TextField select fullWidth label="Advance Payment Status" value={form.advancePaymentStatus || form.paymentStatus || 'pending'} onChange={(e) => onChange({ advancePaymentStatus: e.target.value, paymentStatus: e.target.value })} sx={fieldSx}>
-          <MenuItem value="pending">Pending</MenuItem>
-          <MenuItem value="completed">Paid</MenuItem>
+        <TextField
+          fullWidth
+          type="number"
+          label="Total Amount"
+          value={form.totalAmount}
+          onChange={(e) => onChange({ totalAmount: e.target.value })}
+          sx={amountFieldSx}
+          size="small"
+        />
+        <TextField
+          fullWidth
+          type="number"
+          label="Advance"
+          value={form.advancePaid}
+          onChange={(e) => onChange({ advancePaid: e.target.value })}
+          sx={amountFieldSx}
+          size="small"
+        />
+        <TextField select fullWidth label="Advance Payment Type" value={form.advancePaymentType} onChange={(e) => onChange({ advancePaymentType: e.target.value })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
+          {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
         </TextField>
+        <DatePickerField
+          label="Advance Payment Date"
+          value={form.advancePaymentDate}
+          onChange={(v) => onChange({ advancePaymentDate: v })}
+        />
+        <PaymentStatusSelect
+          label="Advance Payment Status"
+          value={form.advancePaymentStatus || form.paymentStatus || 'pending'}
+          onChange={(e) => onChange({ advancePaymentStatus: e.target.value, paymentStatus: e.target.value })}
+        />
 
-        <Box sx={rowSx}>
-          <TextField
-            fullWidth
-            label="Balance"
-            value={formatCurrency(balanceAmount)}
-            InputProps={{ readOnly: true }}
-            sx={{ ...thirdFieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#c2410c' : '#15803d' } }}
-          />
+        <TextField
+          fullWidth
+          label="Balance"
+          value={formatCurrency(balanceAmount)}
+          InputProps={{ readOnly: true }}
+          sx={{ ...fieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#ea580c' : '#15803d' } }}
+          size="small"
+        />
         {balanceAmount > 0 && (
           <>
-            <TextField select fullWidth label="Balance Payment Type" value={form.balancePaymentType} onChange={(e) => onChange({ balancePaymentType: e.target.value })} sx={thirdFieldSx}>
+            <TextField select fullWidth label="Balance Payment Type" value={form.balancePaymentType} onChange={(e) => onChange({ balancePaymentType: e.target.value })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
               {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
             </TextField>
-            <DatePickerField label="Balance Payment Date" value={form.balancePaymentDate} onChange={(v) => onChange({ balancePaymentDate: v })} sx={thirdFieldSx} />
-            <TextField select fullWidth label="Balance Payment Status" value={form.balancePaymentStatus || (form.balancePaymentDate ? 'completed' : 'pending')} onChange={(e) => onChange({ balancePaymentStatus: e.target.value, paymentStatus: e.target.value === 'completed' && balanceAmount <= 0 ? 'completed' : form.paymentStatus })} sx={thirdFieldSx}>
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="completed">Paid</MenuItem>
-            </TextField>
+            <DatePickerField label="Balance Payment Date" value={form.balancePaymentDate} onChange={(v) => onChange({ balancePaymentDate: v })} />
+            <PaymentStatusSelect
+              label="Balance Payment Status"
+              value={form.balancePaymentStatus || (form.balancePaymentDate ? 'completed' : 'pending')}
+              onChange={(e) => onChange({
+                balancePaymentStatus: e.target.value,
+                paymentStatus: e.target.value === 'completed' ? 'completed' : form.paymentStatus,
+              })}
+            />
           </>
         )}
-        </Box>
       </Section>
 
       <Section title="Extend Stay">
         <DateTimeSplitField
           dateLabel="Extended Upto Date"
           timeLabel="Extended Upto Time"
-          dateValue={form.extendedDate}
-          timeValue={form.extendedTime}
+          dateValue={form.extendedDate || extended.date}
+          timeValue={form.extendedTime || extended.time || '12:00'}
           onDateChange={(v) => onChange({ extendedDate: v })}
           onTimeChange={(v) => onChange({ extendedTime: v })}
         />
-        <Box sx={rowSx}>
-          <TextField fullWidth type="number" label="Extension Amount" value={form.extendedAmount} onChange={(e) => onChange({ extendedAmount: e.target.value })} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField select fullWidth label="Extension Payment Type" value={form.extendedPaymentType} onChange={(e) => onChange({ extendedPaymentType: e.target.value })} sx={{ ...fieldSx, flex: 1 }}>
-            {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-          </TextField>
-          <TextField select fullWidth label="Extension Status" value={form.extendedStatus} onChange={(e) => onChange({ extendedStatus: e.target.value })} sx={{ ...fieldSx, flex: 1 }}>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-          </TextField>
-        </Box>
+        <TextField fullWidth type="number" label="Extension Amount" value={form.extendedAmount} onChange={(e) => onChange({ extendedAmount: e.target.value })} sx={amountFieldSx} size="small" />
+        <TextField select fullWidth label="Extension Payment Type" value={form.extendedPaymentType} onChange={(e) => onChange({ extendedPaymentType: e.target.value })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
+          {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+        </TextField>
+        <PaymentStatusSelect
+          label="Extension Payment Status"
+          value={form.extendedStatus === 'completed' ? 'completed' : 'pending'}
+          onChange={(e) => onChange({ extendedStatus: e.target.value })}
+        />
         <DatePickerField
-          label="Amount Paid Date"
+          label="Extension Paid Date"
           value={form.extendedPaymentDate}
           onChange={(v) => onChange({ extendedPaymentDate: v })}
-          sx={fieldSx}
         />
       </Section>
 
       <Section title="Room Shift">
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Current Location (Old)</Typography>
-        <Box sx={rowSx}>
-          <TextField fullWidth label="Old Floor" value={booking.floorNumber ?? '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField fullWidth label="Old Room" value={booking.roomNumber ?? '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-          <TextField fullWidth label="Old Bed" value={booking.bedNumber ?? '—'} InputProps={{ readOnly: true }} sx={{ ...fieldSx, flex: 1 }} />
-        </Box>
-        <DatePickerField label="Shift Date" value={form.shiftDate} onChange={(v) => onChange({ shiftDate: v })} sx={fieldSx} />
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, mt: 1 }}>New Location</Typography>
-        <TextField select fullWidth label="New Floor" value={form.newFloorId} onChange={(e) => onChange({ newFloorId: e.target.value, newRoomId: '', newBedId: '' })} sx={fieldSx}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', gridColumn: '1 / -1' }}>Current Location</Typography>
+        <TextField fullWidth label="Old Floor" value={booking.floorNumber ?? '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" />
+        <TextField fullWidth label="Old Room" value={booking.roomNumber ?? '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" />
+        <TextField fullWidth label="Old Bed" value={booking.bedNumber ?? '—'} InputProps={{ readOnly: true }} sx={fieldSx} size="small" />
+        <DatePickerField label="Shift Date" value={form.shiftDate} onChange={(v) => onChange({ shiftDate: v })} />
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', gridColumn: '1 / -1', mt: 0.5 }}>New Location</Typography>
+        <TextField select fullWidth label="New Floor" value={form.newFloorId} onChange={(e) => onChange({ newFloorId: e.target.value, newRoomId: '', newBedId: '' })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
           <MenuItem value="">Select floor</MenuItem>
           {vacantFloors.map((f) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}
         </TextField>
-        <TextField select fullWidth label="New Room" value={form.newRoomId} disabled={!form.newFloorId} onChange={(e) => onChange({ newRoomId: e.target.value, newBedId: '' })} sx={fieldSx}>
+        <TextField select fullWidth label="New Room" value={form.newRoomId} disabled={!form.newFloorId} onChange={(e) => onChange({ newRoomId: e.target.value, newBedId: '' })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
           <MenuItem value="">Select room</MenuItem>
           {shiftRooms.map((r) => <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>)}
         </TextField>
-        <TextField select fullWidth label="New Bed" value={form.newBedId} disabled={!form.newRoomId} onChange={(e) => onChange({ newBedId: e.target.value })} sx={fieldSx}>
+        <TextField select fullWidth label="New Bed" value={form.newBedId} disabled={!form.newRoomId} onChange={(e) => onChange({ newBedId: e.target.value })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
           <MenuItem value="">Select bed</MenuItem>
           {shiftBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber}</MenuItem>)}
         </TextField>
       </Section>
-
     </Box>
   )
 }

@@ -60,13 +60,25 @@ export const toolbarSearchSx = {
   '& .MuiInputBase-root': { height: 40, fontSize: '0.8125rem' },
 }
 
-export const toolbarButtonSx = {
-  ...primaryButtonSx,
-  flexShrink: 0,
-  height: 40,
-  minWidth: 'auto',
-  px: { xs: 1.5, sm: 2.5 },
-  fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+/** Equal-width toolbar fields (search, date, status) */
+export const toolbarEqualFieldSx = {
+  ...fieldSx,
+  flex: '1 1 0',
+  minWidth: 0,
+  maxWidth: 'none',
+  width: 'auto',
+  '& .MuiInputBase-root': { height: 40, fontSize: '0.8125rem' },
+}
+
+/** Compact search on customers page (desktop) */
+export const toolbarSearchCompactSx = {
+  ...toolbarEqualFieldSx,
+  flex: { xs: 1, md: '0 0 200px' },
+  maxWidth: { md: 240 },
+}
+
+export const toolbarFilterDateSx = {
+  ...toolbarEqualFieldSx,
 }
 
 export const compactDateFilterSx = {
@@ -77,6 +89,25 @@ export const compactDateFilterSx = {
   minWidth: 130,
   '& .MuiInputBase-root': { height: 40, fontSize: '0.8125rem' },
 }
+
+export const expenseFilterFieldSx = {
+  ...compactDateFilterSx,
+  flex: '0 0 auto',
+  width: { xs: 130, sm: 150 },
+  minWidth: { xs: 120, sm: 140 },
+  maxWidth: 150,
+}
+
+export const toolbarButtonSx = {
+  ...primaryButtonSx,
+  flexShrink: 0,
+  height: 40,
+  minWidth: 'auto',
+  px: { xs: 1.5, sm: 2.5 },
+  fontSize: { xs: '0.8125rem', sm: '0.875rem' },
+}
+
+
 
 
 
@@ -89,8 +120,9 @@ export const getSidebarOffset = (collapsed) =>
 
 export const drawerFormStackSx = {
   display: 'grid',
-  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+  gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
   gap: 1.5,
+  minWidth: 0,
 }
 
 export const drawerSectionSx = {
