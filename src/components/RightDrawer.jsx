@@ -12,7 +12,13 @@ const RightDrawer = ({
   compact = false,
 }) => {
   const isMobile = useMediaQuery('(max-width:767px)')
+  const isTablet = useMediaQuery('(max-width:1023px)')
   const width = DRAWER_VARIANTS[variant] ?? DRAWER_VARIANTS.room
+  const drawerWidth = isMobile
+    ? 'min(340px, 82vw)'
+    : isTablet
+      ? `min(${Math.min(width, 420)}px, 48vw)`
+      : width
 
   return (
     <Drawer
@@ -24,8 +30,8 @@ const RightDrawer = ({
       slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(15, 23, 42, 0.35)' } } }}
       PaperProps={{
         sx: {
-          width: isMobile ? 'min(380px, 88vw)' : width,
-          maxWidth: isMobile ? '88vw' : '95vw',
+          width: drawerWidth,
+          maxWidth: isMobile ? '82vw' : isTablet ? '48vw' : width,
           boxShadow: '-8px 0 32px rgba(15, 23, 42, 0.12)',
         },
       }}

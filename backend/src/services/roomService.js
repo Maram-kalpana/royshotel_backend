@@ -216,8 +216,45 @@ export const updateRoom = async (id, data) => {
 }
 
 export const deleteRoom = async (id) => {
+  const [bedRows] = await query('SELECT * FROM beds WHERE room_id = ?', [id])
+  const inUse = bedRows.some((b) => b.status === 'occupied' || b.customer_id)
+  if (inUse) {
+    throw Object.assign(new Error('Room is in use'), { status: 400 })
+  }
+  await query('DELETE FROM beds WHERE room_id = ?', [id])
   const [result] = await query('DELETE FROM rooms WHERE id = ?', [id])
-  return result.affectedRows > 0
+  if (!result.affectedRows) {
+    throw Object.assign(new Error('Room not found'), { status: 404 })
+  }
+  return true
+}
+
+export const deleteBed = async (bedId) => {
+  const [rows] = await query('SELECT * FROM beds WHERE id = ?', [bedId])
+  const bed = rows[0]
+  if (!bed) {
+    throw Object.assign(new Error('Bed not found'), { status: 404 })
+  }
+  if (bed.status === 'occupied' || bed.customer_id) {
+    throw Object.assign(new Error('Bed is in use'), { status: 400 })
+  }
+
+  const roomId = bed.room_id
+  await query('DELETE FROM beds WHERE id = ?', [bedId])
+
+  const [remaining] = await query('SELECT COUNT(*) AS count FROM beds WHERE room_id = ?', [roomId])
+  const count = Number(remaining[0]?.count || 0)
+
+  if (count === 0) {
+    await query('DELETE FROM rooms WHERE id = ?', [roomId])
+  } else {
+    const [costRows] = await query('SELECT AVG(cost) AS avgCost FROM beds WHERE room_id = ?', [roomId])
+    await query(
+      'UPDATE rooms SET total_beds = ?, cost_per_bed = ? WHERE id = ?',
+      [count, Number(costRows[0]?.avgCost || 0), roomId],
+    )
+  }
+  return true
 }
 
 export const getRoomById = async (id) => {

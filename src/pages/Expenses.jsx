@@ -222,7 +222,7 @@ const Expenses = () => {
                 label="Date"
                 value={filterDate}
                 onChange={setFilterDate}
-                sx={{ ...compactDateFilterSx, flex: { xs: '0 0 auto', md: '0 0 auto' }, minWidth: { xs: 120, sm: 130 } }}
+                sx={{ ...compactDateFilterSx, flex: '0 0 auto', minWidth: { xs: 100, sm: 120 } }}
               />
               <TextField
                 label="Search"
@@ -230,8 +230,30 @@ const Expenses = () => {
                 value={searchDescription}
                 onChange={(e) => setSearchDescription(e.target.value)}
                 size="small"
-                sx={toolbarSearchSx}
+                sx={{ ...toolbarSearchSx, minWidth: { xs: 80, sm: 120 } }}
               />
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  px: 1.5,
+                  py: 0.75,
+                  minHeight: 40,
+                  borderRadius: 1,
+                  border: '1px solid #e2e8f0',
+                  bgcolor: '#f8fafc',
+                  flexShrink: 0,
+                  minWidth: { xs: 90, sm: 110 },
+                }}
+              >
+                <Typography variant="caption" sx={{ color: '#64748b', lineHeight: 1.2, fontSize: '0.6875rem' }}>
+                  Total ({filteredExpenses.length})
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a', lineHeight: 1.3, fontSize: '0.8125rem' }}>
+                  {formatCurrency(totalAmount)}
+                </Typography>
+              </Box>
             </>
           )}
           action={(
@@ -241,36 +263,6 @@ const Expenses = () => {
             </Button>
           )}
         />
-
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: { xs: 'stretch', md: 'flex-end' },
-            mb: 1,
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              px: 2,
-              py: 1,
-              minHeight: 40,
-              borderRadius: 1,
-              border: '1px solid #e2e8f0',
-              bgcolor: '#f8fafc',
-              flex: { xs: 1, md: '0 0 auto' },
-            }}
-          >
-            <Typography variant="caption" sx={{ color: '#64748b', lineHeight: 1.2 }}>
-              Total ({filteredExpenses.length})
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>
-              {formatCurrency(totalAmount)}
-            </Typography>
-          </Box>
-        </Box>
 
         <MuiDataGrid
           rows={tableRows}

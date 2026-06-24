@@ -299,11 +299,11 @@ export const deleteBooking = async (id) => {
     await conn.beginTransaction()
     const [bookings] = await conn.execute('SELECT * FROM bookings WHERE id = ?', [id])
     const booking = bookings[0]
-    if (booking?.bed_id) {
-      await conn.execute('UPDATE beds SET status="vacant", customer_id=NULL WHERE id=?', [booking.bed_id])
+    if (!booking) {
+      throw Object.assign(new Error('Booking not found'), { status: 404 })
     }
-    if (booking?.customer_id) {
-      await conn.execute('UPDATE customers SET status="checked-out" WHERE id=?', [booking.customer_id])
+    if (booking.bed_id) {
+      await conn.execute('UPDATE beds SET status="vacant", customer_id=NULL WHERE id=?', [booking.bed_id])
     }
     await conn.execute('DELETE FROM bookings WHERE id = ?', [id])
     await conn.commit()

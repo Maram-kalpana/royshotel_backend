@@ -27,3 +27,8 @@ export const deleteRoom = asyncHandler(async (req, res) => {
   await roomService.deleteRoom(req.params.id)
   success(res, { deleted: true })
 })
+
+export const deleteBed = asyncHandler(async (req, res) => {
+  await roomService.deleteBed(req.params.id)
+  success(res, { deleted: true })
+})

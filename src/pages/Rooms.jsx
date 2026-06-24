@@ -7,7 +7,7 @@ import RightDrawer from '../components/RightDrawer'
 import DrawerFormStack from '../components/DrawerFormStack'
 import { useHotel, useAppDispatch } from '../hooks/useStore'
 import { loadRooms } from '../services/dataService'
-import { roomsApi } from '../services/endpoints'
+import { roomsApi, bedsApi } from '../services/endpoints'
 import { formatCurrency, displayValue } from '../utils/helpers'
 import { MergedCell, VerticalActions } from '../components/tableCells'
 import PageToolbar from '../components/PageToolbar'
@@ -77,7 +77,7 @@ const Rooms = () => {
           bedType: bed.bedType || '—',
           cost: bed.cost,
           room,
-          bed,
+          bed: { ...bed, status: bed.status },
         })
       }
     }
@@ -143,11 +143,20 @@ const Rooms = () => {
 
   const handleDelete = async (row) => {
     try {
-      await roomsApi.remove(row.room.id)
+      if (row.bed?.id) {
+        if (row.bed.status === 'occupied') {
+          toast.error('Bed is in use')
+          return
+        }
+        await bedsApi.remove(row.bed.id)
+        toast.success(`Bed ${row.bedNumber} deleted`)
+      } else {
+        await roomsApi.remove(row.room.id)
+        toast.success(`Room ${row.roomNumber} deleted`)
+      }
       await loadRooms(dispatch)
-      toast.success(`Room ${row.roomNumber} deleted`)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete room')
+      toast.error(err.response?.data?.message || 'Failed to delete')
     }
   }
 

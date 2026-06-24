@@ -105,15 +105,16 @@ const Customers = () => {
     {
       field: 'roomStay',
       headerName: 'Room & Stay',
-      flex: 1,
-      minWidth: 90,
+      width: 72,
+      minWidth: 68,
       allowWrap: true,
       renderCell: ({ row }) => <MergedCell lines={[`Room ${row.roomNumber}`, row.stayType]} />,
     },
     {
       field: 'amount',
       headerName: 'Amount',
-      width: 85,
+      width: 72,
+      minWidth: 68,
       valueFormatter: (v) => formatCurrency(v),
     },
     {

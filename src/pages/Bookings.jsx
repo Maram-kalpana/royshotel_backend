@@ -13,7 +13,7 @@ import CustomerDetailCards from '../components/CustomerDetailCards'
 import { useAuth, useAppDispatch, useHotel, useBookings, useCustomers, useMonthlyPayments } from '../hooks/useStore'
 import { formatCurrency, ROLES, getPaymentStatus, formatStayDuration } from '../utils/helpers'
 import PageToolbar from '../components/PageToolbar'
-import { filterFieldSx, primaryButtonSx, toolbarSearchSx, toolbarButtonSx } from '../utils/layout'
+import { filterFieldSx, primaryButtonSx, toolbarSearchSx, toolbarButtonSx, compactDateFilterSx } from '../utils/layout'
 import { loadBookings, loadCustomers, loadRooms } from '../services/dataService'
 import { bookingsApi } from '../services/endpoints'
 
@@ -358,8 +358,8 @@ const BookingsContent = () => {
     {
       field: 'location',
       headerName: 'Room & Bed',
-      flex: 1,
-      minWidth: 90,
+      width: 68,
+      minWidth: 64,
       allowWrap: true,
       renderCell: ({ row }) => (
         <LocationCell floorNumber={row.floorNumber} roomNumber={row.roomNumber} bedNumber={row.bedNumber} />
@@ -368,7 +368,8 @@ const BookingsContent = () => {
     {
       field: 'totalAmount',
       headerName: 'Amount',
-      width: 90,
+      width: 72,
+      minWidth: 68,
       valueFormatter: (v) => formatCurrency(v),
     },
     {
@@ -398,30 +399,40 @@ const BookingsContent = () => {
     <>
       <PageToolbar
         filters={(
-          <TextField
-            label="Search"
-            placeholder="Search booking..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={toolbarSearchSx}
-            size="small"
-          />
+          <>
+            <TextField
+              label="Search"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              sx={{ ...toolbarSearchSx, minWidth: { xs: 80, sm: 120 } }}
+              size="small"
+            />
+            <DatePickerField
+              label="Booking Date"
+              value={bookingDate}
+              onChange={setBookingDate}
+              sx={{ ...compactDateFilterSx, flex: '0 0 auto', minWidth: { xs: 110, sm: 130 } }}
+            />
+            <TextField
+              select
+              label="Status"
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              sx={{ ...compactDateFilterSx, flex: '0 0 auto', minWidth: { xs: 90, sm: 110 } }}
+              size="small"
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+            </TextField>
+          </>
         )}
         action={(
           <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDrawerOpen(true)} sx={toolbarButtonSx}>
             <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Booking</Box>
             <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Add</Box>
           </Button>
-        )}
-        secondary={(
-          <>
-            <DatePickerField label="Booking Date" value={bookingDate} onChange={setBookingDate} sx={{ ...filterFieldSx, flex: { xs: '1 1 140px', md: '1 1 180px' } }} />
-            <TextField select label="Payment Status" value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} sx={{ ...filterFieldSx, flex: { xs: '1 1 140px', md: '1 1 180px' } }} size="small">
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="completed">Completed</MenuItem>
-            </TextField>
-          </>
         )}
       />
 

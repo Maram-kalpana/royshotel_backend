@@ -82,6 +82,10 @@ export const bedsApi = {
     console.log('API Request Started: GET /beds/vacant')
     return unwrap(await api.get('/beds/vacant', { params }))
   },
+  remove: async (id) => {
+    console.log('API Request Started: DELETE /beds/' + id)
+    return unwrap(await api.delete(`/beds/${id}`))
+  },
 }
 
 export const customersApi = {

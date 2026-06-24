@@ -10,7 +10,7 @@ const customerSlice = createSlice({
   reducers: {
     setCustomersList: (state, action) => {
       const all = action.payload || []
-      state.list = all.filter((c) => c.status !== 'checked-out')
+      state.list = all
       state.history = all.filter((c) => c.status === 'checked-out')
     },
     addCustomer: (state, action) => {
