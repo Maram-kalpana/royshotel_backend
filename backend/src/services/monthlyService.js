@@ -527,6 +527,17 @@ export const updateTenant = async (id, data) => {
       ],
     )
 
+    const checkoutDt = data.checkOutDateTime && data.checkOutDateTime !== '' ? data.checkOutDateTime : null
+    const isTenantCheckout = Boolean(checkoutDt)
+    if (isTenantCheckout && existing.bed_id) {
+      await conn.execute('UPDATE beds SET status="vacant", customer_id=NULL WHERE id=?', [existing.bed_id])
+      const checkoutDate = (checkoutDt || '').split('T')[0] || new Date().toISOString().split('T')[0]
+      await conn.execute(
+        'UPDATE customers SET status="checked-out", check_out_date=?, check_out_datetime=? WHERE id=?',
+        [checkoutDate, checkoutDt, existing.customer_id],
+      )
+    }
+
     await conn.commit()
     return getTenant(id)
   } catch (err) {

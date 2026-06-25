@@ -98,8 +98,10 @@ export const createRoom = async (data) => {
     let floorId = data.floorId
     if (!floorId) {
       const [floors] = await conn.execute('SELECT id FROM floors WHERE number = ? LIMIT 1', [data.floorNumber])
-      if (floors[0]) floorId = floors[0].id
-      else {
+      if (floors[0]) {
+        floorId = floors[0].id
+        await conn.execute('UPDATE floors SET total_rooms = total_rooms + 1 WHERE id = ?', [floorId])
+      } else {
         floorId = generateId('floor')
         await conn.execute(
           'INSERT INTO floors (id, name, number, total_rooms) VALUES (?, ?, ?, 1)',
@@ -227,6 +229,33 @@ export const deleteRoom = async (id) => {
     throw Object.assign(new Error('Room not found'), { status: 404 })
   }
   return true
+}
+
+export const updateBed = async (bedId, data) => {
+  const [rows] = await query('SELECT * FROM beds WHERE id = ?', [bedId])
+  const bed = rows[0]
+  if (!bed) {
+    throw Object.assign(new Error('Bed not found'), { status: 404 })
+  }
+
+  const status = data.status ?? bed.status
+  if (!['vacant', 'occupied', 'reserved'].includes(status)) {
+    throw Object.assign(new Error('Invalid bed status'), { status: 400 })
+  }
+
+  if (status === 'occupied' && bed.status !== 'occupied' && !data.customerId) {
+    throw Object.assign(new Error('customerId required when marking bed occupied'), { status: 400 })
+  }
+
+  const customerId = status === 'vacant' ? null : (data.customerId ?? bed.customer_id)
+
+  await query(
+    'UPDATE beds SET status = ?, customer_id = ? WHERE id = ?',
+    [status, customerId, bedId],
+  )
+
+  const [updated] = await query('SELECT * FROM beds WHERE id = ?', [bedId])
+  return mapBed(updated[0])
 }
 
 export const deleteBed = async (bedId) => {

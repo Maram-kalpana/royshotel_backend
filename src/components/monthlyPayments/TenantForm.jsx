@@ -3,15 +3,13 @@ import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
 import { formatCurrency, isValidImageUrl } from '../../utils/helpers'
-import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx } from '../../utils/layout'
+import { getVacantFloors, getVacantRooms, getVacantBedsForRoom, filterVacantBeds, enrichBedsWithRooms, normId } from '../../utils/vacancyHelpers'
+import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx, drawerSelectMenuProps } from '../../utils/layout'
 import DateTimeSplitField, { combineDateAndTime, splitDateTime } from '../DateTimeSplitField'
 import DatePickerField from '../DatePickerField'
 import FileUpload from '../FileUpload'
 
-const selectMenuProps = {
-  disablePortal: true,
-  PaperProps: { sx: { maxHeight: 280 } },
-}
+const selectMenuProps = drawerSelectMenuProps
 
 const paymentTypes = ['Cash', 'UPI', 'Card', 'Bank Transfer']
 
@@ -41,8 +39,8 @@ export const buildTenantFormDefaults = (tenant, customer, booking, beds = [], fl
   if (!tenant) return emptyDefaults()
 
   const bedId = tenant.bedId || customer?.bedId || booking?.bedId || ''
-  const bed = beds.find((b) => b.id === bedId)
-  const floor = bed ? floors.find((f) => f.id === bed.floorId || f.number === bed.floorNumber) : null
+  const bed = beds.find((b) => normId(b.id) === normId(bedId))
+  const floor = bed ? floors.find((f) => normId(f.id) === normId(bed.floorId) || Number(f.number) === Number(bed.floorNumber)) : null
 
   const checkIn = splitDateTime(tenant.checkInDateTime || booking?.checkInDateTime || customer?.checkInDate || tenant.checkInDate)
   const checkOut = splitDateTime(tenant.checkOutDateTime || booking?.checkOutDateTime || tenant.checkOutDate || customer?.checkOutDate || '')
@@ -76,7 +74,7 @@ export const buildTenantFormDefaults = (tenant, customer, booking, beds = [], fl
   }
 }
 
-const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer, booking, editMode = false }) => {
+const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer, booking, editMode = false, loading = false }) => {
   const [photoFile, setPhotoFile] = useState(null)
   const [aadhaarFile, setAadhaarFile] = useState(null)
   const [aadhaarBackFile, setAadhaarBackFile] = useState(null)
@@ -107,55 +105,60 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
   const checkOutTime = watch('checkOutTime')
   const currentBedId = tenant?.bedId || customer?.bedId || booking?.bedId
 
+  const enrichedBeds = useMemo(() => enrichBedsWithRooms(beds, rooms), [beds, rooms])
+
   const availableBeds = useMemo(() => {
+    const vacant = filterVacantBeds(enrichedBeds)
     if (editMode && currentBedId) {
-      return beds.filter((b) => b.status === 'vacant' || b.id === currentBedId)
+      const current = enrichedBeds.find((b) => normId(b.id) === normId(currentBedId))
+      if (current && !vacant.some((b) => normId(b.id) === normId(currentBedId))) {
+        return [...vacant, current]
+      }
     }
-    return beds.filter((b) => b.status === 'vacant')
-  }, [beds, editMode, currentBedId])
+    return vacant
+  }, [enrichedBeds, editMode, currentBedId])
 
-  const vacantFloors = useMemo(() => {
-    const floorIds = new Set(availableBeds.map((b) => b.floorId))
-    const floorNumbers = new Set(availableBeds.map((b) => b.floorNumber))
-    return floors.filter((f) => floorIds.has(f.id) || floorNumbers.has(f.number))
-  }, [floors, availableBeds])
+  const vacantFloors = useMemo(
+    () => getVacantFloors(floors, availableBeds, rooms),
+    [floors, availableBeds, rooms],
+  )
 
-  const vacantRooms = useMemo(() => {
-    if (!selectedFloor) return []
-    const selectedFloorData = floors.find((f) => f.id === selectedFloor)
-    const roomIds = new Set(availableBeds.map((b) => b.roomId))
-    return rooms.filter((r) => {
-      if (!roomIds.has(r.id)) return false
-      if (r.floorId === selectedFloor) return true
-      if (selectedFloorData && r.floorNumber === selectedFloorData.number) return true
-      return false
-    })
-  }, [rooms, availableBeds, selectedFloor, floors])
+  const vacantRooms = useMemo(
+    () => getVacantRooms(rooms, availableBeds, floors, selectedFloor),
+    [rooms, availableBeds, floors, selectedFloor],
+  )
 
   const filteredBeds = useMemo(
-    () => availableBeds.filter((b) => b.roomId === selectedRoom),
-    [availableBeds, selectedRoom],
+    () => getVacantBedsForRoom(availableBeds, selectedRoom, rooms),
+    [availableBeds, selectedRoom, rooms],
   )
 
-  const shiftRooms = useMemo(() => {
-    if (!newFloorId) return []
-    const selectedFloorData = floors.find((f) => f.id === newFloorId)
-    const roomIds = new Set(availableBeds.map((b) => b.roomId))
-    return rooms.filter((r) => {
-      if (!roomIds.has(r.id)) return false
-      if (r.floorId === newFloorId) return true
-      if (selectedFloorData && r.floorNumber === selectedFloorData.number) return true
-      return false
-    })
-  }, [rooms, availableBeds, newFloorId, floors])
+  const shiftRooms = useMemo(
+    () => getVacantRooms(rooms, availableBeds, floors, newFloorId),
+    [rooms, availableBeds, floors, newFloorId],
+  )
 
   const shiftBeds = useMemo(
-    () => availableBeds.filter((b) => b.roomId === newRoomId),
-    [availableBeds, newRoomId],
+    () => getVacantBedsForRoom(availableBeds, newRoomId, rooms),
+    [availableBeds, newRoomId, rooms],
   )
 
-  const currentBed = beds.find((b) => b.id === currentBedId)
-  const selectedBedData = beds.find((b) => b.id === selectedBed)
+  const currentBed = enrichedBeds.find((b) => normId(b.id) === normId(currentBedId))
+  const selectedBedData = enrichedBeds.find((b) => normId(b.id) === normId(selectedBed))
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    console.log('floors', floors)
+    console.log('rooms', rooms)
+    console.log('beds', beds)
+    console.log('vacantBedsList', availableBeds)
+    console.log('vacantFloors', vacantFloors)
+    console.log('vacantRooms', vacantRooms)
+    console.log('filteredBeds', filteredBeds)
+    console.log('selectedFloor', selectedFloor)
+    console.log('selectedRoom', selectedRoom)
+    console.log('selectedBed', selectedBed)
+  }, [floors, rooms, beds, availableBeds, vacantFloors, vacantRooms, filteredBeds, selectedFloor, selectedRoom, selectedBed])
 
   useEffect(() => { if (!editMode) { setValue('roomId', ''); setValue('bedId', '') } }, [selectedFloor, setValue, editMode])
   useEffect(() => { if (!editMode) setValue('bedId', '') }, [selectedRoom, setValue, editMode])
@@ -167,6 +170,12 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
     const advance = Number(data.advancePaid) || 0
     if (advance > 0 && !data.paymentDate) {
       return
+    }
+
+    if (!editMode) {
+      if (!data.floorId || !data.roomId || !data.bedId) return
+      const bed = enrichedBeds.find((b) => normId(b.id) === normId(data.bedId))
+      if (!bed || !filterVacantBeds([bed]).length) return
     }
 
     const checkInDateTime = combineDateAndTime(data.checkInDate, data.checkInTime)
@@ -207,7 +216,17 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0, maxWidth: '100%', width: '100%' }}>
+      {!editMode && loading && (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 1 }}>
+          Loading available beds...
+        </Typography>
+      )}
+      {!editMode && !loading && filterVacantBeds(enrichedBeds).length === 0 && (
+        <Typography variant="body2" color="error" sx={{ textAlign: 'center', py: 1 }}>
+          No vacant beds available
+        </Typography>
+      )}
       <Section title="Customer Information">
         <Field control={control} name="name" label="Full Name" rules={{ required: 'Name is required' }} errors={errors} />
         <Field control={control} name="phone" label="Phone Number" rules={{ required: 'Phone is required' }} errors={errors} />
@@ -240,20 +259,92 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
         ) : (
           <>
             <Controller name="floorId" control={control} rules={{ required: 'Select a floor' }} render={({ field }) => (
-              <TextField {...field} select fullWidth label="Floor" error={!!errors.floorId} helperText={errors.floorId?.message} sx={fieldSx} SelectProps={{ MenuProps: selectMenuProps }}>
-                {vacantFloors.map((f) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}
+              <TextField
+                {...field}
+                select
+                fullWidth
+                label="Floor"
+                error={!!errors.floorId}
+                helperText={errors.floorId?.message || (vacantFloors.length === 0 ? 'No floors with vacant beds' : '')}
+                sx={fieldSx}
+                SelectProps={{ MenuProps: selectMenuProps }}
+              >
+                {vacantFloors.length === 0
+                  ? <MenuItem value="" disabled>No vacant floors available</MenuItem>
+                  : [
+                    <MenuItem key="" value=""><em>Select floor</em></MenuItem>,
+                    ...vacantFloors.map((f) => (
+                      <MenuItem key={f.id} value={f.id}>{f.name || `Floor ${f.number}`}</MenuItem>
+                    )),
+                  ]}
               </TextField>
             )} />
             <Controller name="roomId" control={control} rules={{ required: 'Select a room' }} render={({ field }) => (
-              <TextField {...field} select fullWidth label="Room" disabled={!selectedFloor} error={!!errors.roomId} helperText={errors.roomId?.message} sx={fieldSx} SelectProps={{ MenuProps: selectMenuProps }}>
-                {vacantRooms.map((r) => <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>)}
+              <TextField
+                {...field}
+                select
+                fullWidth
+                label="Room"
+                disabled={!selectedFloor}
+                error={!!errors.roomId}
+                helperText={
+                  errors.roomId?.message
+                  || (!selectedFloor ? 'Select a floor first' : vacantRooms.length === 0 ? 'No vacant rooms on this floor' : '')
+                }
+                sx={fieldSx}
+                SelectProps={{ MenuProps: selectMenuProps }}
+              >
+                {vacantRooms.length === 0
+                  ? <MenuItem value="" disabled>No vacant rooms available</MenuItem>
+                  : [
+                    <MenuItem key="" value=""><em>Select room</em></MenuItem>,
+                    ...vacantRooms.map((r) => (
+                      <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>
+                    )),
+                  ]}
               </TextField>
             )} />
-            <Controller name="bedId" control={control} rules={{ required: 'Select a bed' }} render={({ field }) => (
-              <TextField {...field} select fullWidth label="Bed" disabled={!selectedRoom} error={!!errors.bedId} helperText={errors.bedId?.message} sx={fieldSx} SelectProps={{ MenuProps: selectMenuProps }}>
-                {filteredBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber} — {formatCurrency(b.cost)}</MenuItem>)}
+            <Controller name="bedId" control={control} rules={{
+              required: 'Select a bed',
+              validate: (value) => {
+                const bed = enrichedBeds.find((b) => normId(b.id) === normId(value))
+                if (!bed) return 'Select a bed'
+                if (!filterVacantBeds([bed]).length) return 'Selected bed is already occupied'
+                return true
+              },
+            }} render={({ field }) => (
+              <TextField
+                {...field}
+                select
+                fullWidth
+                label="Bed"
+                disabled={!selectedRoom}
+                error={!!errors.bedId}
+                helperText={
+                  errors.bedId?.message
+                  || (!selectedRoom ? 'Select a room first' : filteredBeds.length === 0 ? 'No vacant beds in this room' : '')
+                }
+                sx={fieldSx}
+                SelectProps={{ MenuProps: selectMenuProps }}
+              >
+                {filteredBeds.length === 0
+                  ? <MenuItem value="" disabled>No vacant beds available</MenuItem>
+                  : [
+                    <MenuItem key="" value=""><em>Select bed</em></MenuItem>,
+                    ...filteredBeds.map((b) => (
+                      <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber} — {formatCurrency(b.cost)}</MenuItem>
+                    )),
+                  ]}
               </TextField>
             )} />
+            {selectedBedData && (
+              <Box sx={{ gridColumn: '1 / -1', p: 1.5, bgcolor: '#f8fafc', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary">Bed Details</Typography>
+                <Typography variant="body2">
+                  Bed {selectedBedData.bedNumber} · {selectedBedData.bedType || 'Standard'} · {formatCurrency(selectedBedData.cost)}/month
+                </Typography>
+              </Box>
+            )}
           </>
         )}
         <TextField label="Stay Type" value="Monthly" InputProps={{ readOnly: true }} sx={fieldSx} fullWidth />
@@ -353,7 +444,7 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
 
       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>
         <Button variant="outlined" onClick={onCancel} sx={{ height: 44 }}>Cancel</Button>
-        <Button type="submit" variant="contained" sx={primaryButtonSx}>
+        <Button type="submit" variant="contained" sx={primaryButtonSx} disabled={!editMode && (loading || filterVacantBeds(enrichedBeds).length === 0)}>
           {editMode ? 'Update Tenant' : 'Save Tenant'}
         </Button>
       </Box>

@@ -93,6 +93,9 @@ export const checkoutCustomer = async (customerId) => {
     const [customers] = await conn.execute('SELECT * FROM customers WHERE id = ? FOR UPDATE', [customerId])
     const customer = customers[0]
     if (!customer) throw Object.assign(new Error('Customer not found'), { status: 404 })
+    if (customer.status === 'checked-out') {
+      throw Object.assign(new Error('Customer is already checked out'), { status: 400 })
+    }
 
     const [bookings] = await conn.execute(
       'SELECT * FROM bookings WHERE customer_id = ? AND status IN ("active","booked","reserved") ORDER BY created_at DESC LIMIT 1',
@@ -104,16 +107,35 @@ export const checkoutCustomer = async (customerId) => {
     }
 
     const today = new Date().toISOString().split('T')[0]
+
     await conn.execute(
       'UPDATE customers SET status="checked-out", check_out_date=?, check_out_datetime=NOW() WHERE id=?',
       [today, customerId],
     )
+
     if (booking) {
-      await conn.execute('UPDATE bookings SET status="completed", balance_amount=0 WHERE id=?', [booking.id])
+      await conn.execute(
+        'UPDATE bookings SET status="completed", balance_amount=0, check_out_datetime=COALESCE(check_out_datetime, NOW()) WHERE id=?',
+        [booking.id],
+      )
     }
+
+    const [tenants] = await conn.execute(
+      'SELECT * FROM monthly_tenants WHERE customer_id = ? LIMIT 1',
+      [customerId],
+    )
+    const tenant = tenants[0]
+    if (tenant) {
+      await conn.execute(
+        'UPDATE customers SET check_out_datetime=COALESCE(check_out_datetime, NOW()) WHERE id=?',
+        [customerId],
+      )
+    }
+
     if (customer.bed_id) {
       await conn.execute('UPDATE beds SET status="vacant", customer_id=NULL WHERE id=?', [customer.bed_id])
     }
+
     await conn.commit()
     return getCustomerById(customerId)
   } catch (err) {

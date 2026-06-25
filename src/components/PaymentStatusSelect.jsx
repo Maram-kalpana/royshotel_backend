@@ -1,5 +1,5 @@
 import { TextField, MenuItem } from '@mui/material'
-import { fieldSx } from '../utils/layout'
+import { fieldSx, drawerSelectMenuProps } from '../utils/layout'
 
 export const PAYMENT_STATUS = {
   PENDING: 'pending',
@@ -14,11 +14,7 @@ const OPTIONS = [
 const resolveOption = (value) =>
   OPTIONS.find((o) => o.value === value) || OPTIONS[0]
 
-const menuProps = {
-  disablePortal: false,
-  sx: { zIndex: 1600 },
-  PaperProps: { sx: { maxHeight: 280 } },
-}
+const menuProps = drawerSelectMenuProps
 
 /** Paid / Pending dropdown with green (Paid) and orange (Pending) styling */
 const PaymentStatusSelect = ({ label, value, onChange, sx = {}, size = 'small' }) => {

@@ -167,7 +167,7 @@ export const updateBooking = async (id, data) => {
       || data.balancePaymentStatus === 'completed'
       || balancePaymentAmount > 0
     const isCheckout = Boolean(toDateTimeOrNull(data.checkOutDateTime))
-      && ['checked-out', 'completed'].includes(data.status || booking.status)
+      && (data.status === 'completed' || data.status === 'checked-out')
 
     if (isCheckout && !balanceSettled && balance > 0) {
       throw Object.assign(

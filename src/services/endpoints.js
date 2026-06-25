@@ -20,6 +20,13 @@ export const authApi = {
   },
 }
 
+export const floorsApi = {
+  list: async () => {
+    console.log('API Request Started: GET /floors')
+    return unwrap(await api.get('/floors'))
+  },
+}
+
 export const dashboardApi = {
   stats: async () => {
     console.log('API Request Started: GET /dashboard/stats')
@@ -82,6 +89,10 @@ export const bedsApi = {
     console.log('API Request Started: GET /beds/vacant')
     return unwrap(await api.get('/beds/vacant', { params }))
   },
+  update: async (id, data) => {
+    console.log('API Request Started: PATCH /beds/' + id)
+    return unwrap(await api.patch(`/beds/${id}`, data))
+  },
   remove: async (id) => {
     console.log('API Request Started: DELETE /beds/' + id)
     return unwrap(await api.delete(`/beds/${id}`))
@@ -100,6 +111,10 @@ export const customersApi = {
   update: async (id, data) => {
     console.log('API Request Started: PUT /customers/' + id)
     return unwrap(await api.put(`/customers/${id}`, data))
+  },
+  checkout: async (id) => {
+    console.log('API Request Started: POST /customers/' + id + '/checkout')
+    return unwrap(await api.post(`/customers/${id}/checkout`))
   },
   remove: async (id) => {
     console.log('API Request Started: DELETE /customers/' + id)

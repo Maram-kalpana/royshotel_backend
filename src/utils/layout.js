@@ -23,9 +23,16 @@ export const noSpinnerSx = {
 
 export const fieldSx = {
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   '& .MuiInputBase-root': {
     height: 44,
     fontSize: '0.875rem',
+    width: '100%',
+  },
+  '& .MuiPickersInputBase-root': {
+    width: '100%',
   },
   '& .MuiInputLabel-root': {
     fontSize: '0.875rem',
@@ -34,6 +41,25 @@ export const fieldSx = {
     fontSize: '0.875rem',
   },
   ...noSpinnerSx,
+}
+
+/** Select menus inside drawers — must sit above drawer modal (1400) */
+export const drawerSelectMenuProps = {
+  disablePortal: false,
+  disableAutoFocus: true,
+  disableEnforceFocus: true,
+  disableScrollLock: true,
+  anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+  transformOrigin: { vertical: 'top', horizontal: 'left' },
+  PaperProps: {
+    sx: {
+      maxHeight: 280,
+      zIndex: 2000,
+    },
+    style: { zIndex: 2000 },
+  },
+  MenuListProps: { sx: { zIndex: 2000 } },
+  sx: { zIndex: 2000 },
 }
 
 export const filterFieldSx = {
@@ -60,7 +86,6 @@ export const toolbarSearchSx = {
   '& .MuiInputBase-root': { height: 40, fontSize: '0.8125rem' },
 }
 
-/** Equal-width toolbar fields (search, date, status) */
 export const toolbarEqualFieldSx = {
   ...fieldSx,
   flex: '1 1 0',
@@ -69,6 +94,8 @@ export const toolbarEqualFieldSx = {
   width: 'auto',
   '& .MuiInputBase-root': { height: 40, fontSize: '0.8125rem' },
 }
+
+export const toolbarRowFieldSx = toolbarEqualFieldSx
 
 /** Compact search on customers page (desktop) */
 export const toolbarSearchCompactSx = {
@@ -120,9 +147,11 @@ export const getSidebarOffset = (collapsed) =>
 
 export const drawerFormStackSx = {
   display: 'grid',
-  gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
+  gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
   gap: 1.5,
   minWidth: 0,
+  width: '100%',
+  maxWidth: '100%',
 }
 
 export const drawerSectionSx = {
@@ -130,6 +159,10 @@ export const drawerSectionSx = {
   border: '1px solid #e2e8f0',
   bgcolor: '#fafbfc',
   borderRadius: 1,
+  minWidth: 0,
+  maxWidth: '100%',
+  overflow: 'visible',
+  boxSizing: 'border-box',
 }
 
 export const horizontalScrollbarSx = {

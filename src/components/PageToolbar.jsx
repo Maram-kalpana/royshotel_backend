@@ -1,6 +1,6 @@
 import { Box } from '@mui/material'
 
-/** Primary row: filters/search grow, action button stays pinned on the right (mobile + desktop). */
+/** Primary row: filters/search grow; optional second row for more filters + action. */
 const PageToolbar = ({ filters, action, secondary, sx }) => (
   <Box sx={{ mb: 2, ...sx }}>
     <Box
@@ -18,18 +18,18 @@ const PageToolbar = ({ filters, action, secondary, sx }) => (
           gap: 1,
           flex: 1,
           minWidth: 0,
-          flexWrap: { xs: 'wrap', lg: 'nowrap' },
+          flexWrap: 'wrap',
           overflow: 'visible',
         }}
       >
         {filters}
       </Box>
-      {action && (
+      {action && !secondary && (
         <Box sx={{ flexShrink: 0 }}>{action}</Box>
       )}
     </Box>
     {secondary && (
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 1, mt: 1 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
         {secondary}
       </Box>
     )}

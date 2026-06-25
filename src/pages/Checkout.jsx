@@ -1,16 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Button, Divider, Typography, Alert } from '@mui/material'
+import { Button, Divider, Typography, Alert, CircularProgress, Box } from '@mui/material'
 import { CheckCircle, User, DoorOpen, CreditCard } from 'lucide-react'
 import { motion } from 'framer-motion'
 import PageTransition from '../components/PageTransition'
 import Modal from '../components/Modal'
 import PaymentStatusBadge from '../components/PaymentStatusBadge'
 import { useCustomers, useBookings, useAppDispatch, useHotel } from '../hooks/useStore'
-import { checkoutCustomer } from '../redux/slices/customerSlice'
-import { updateBooking } from '../redux/slices/bookingSlice'
-import { updateBed } from '../redux/slices/hotelSlice'
 import { formatCurrency, formatDate } from '../utils/helpers'
+import { customersApi } from '../services/endpoints'
+import { loadCustomers, loadBookings, loadRooms } from '../services/dataService'
 import toast from 'react-hot-toast'
 
 const Checkout = () => {
@@ -21,11 +20,33 @@ const Checkout = () => {
   const { list: bookings } = useBookings()
   const { beds } = useHotel()
   const [successOpen, setSuccessOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      loadCustomers(dispatch),
+      loadBookings(dispatch),
+      loadRooms(dispatch),
+    ])
+      .catch(console.error)
+      .finally(() => setInitialLoading(false))
+  }, [dispatch, id])
 
   const customer = list.find((c) => c.id === id)
-  const booking = bookings.find((b) => b.customerId === id)
+  const booking = bookings.find((b) => b.customerId === id && b.status !== 'completed')
   const balanceAmount = booking?.balanceAmount ?? 0
-  const canCheckout = balanceAmount <= 0
+  const canCheckout = balanceAmount <= 0 && customer?.status === 'checked-in'
+
+  if (initialLoading) {
+    return (
+      <PageTransition className="page-container">
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      </PageTransition>
+    )
+  }
 
   if (!customer) {
     return (
@@ -35,21 +56,34 @@ const Checkout = () => {
     )
   }
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (balanceAmount > 0) {
       toast.error('Customer cannot be checked out until the pending balance amount is cleared.')
       return
     }
-
-    dispatch(checkoutCustomer(customer.id))
-    if (booking) {
-      dispatch(updateBooking({ ...booking, status: 'completed', balanceAmount: 0 }))
+    if (customer.status === 'checked-out') {
+      toast.error('Customer is already checked out.')
+      return
     }
-    const bed = beds.find((b) => b.id === customer.bedId)
-    if (bed) dispatch(updateBed({ ...bed, status: 'vacant', customerId: null }))
-    setSuccessOpen(true)
-    toast.success('Checkout completed successfully!')
+
+    setLoading(true)
+    try {
+      await customersApi.checkout(customer.id)
+      await Promise.all([
+        loadCustomers(dispatch),
+        loadBookings(dispatch),
+        loadRooms(dispatch),
+      ])
+      setSuccessOpen(true)
+      toast.success('Checkout completed successfully!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to complete checkout')
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const bed = beds.find((b) => b.id === customer.bedId)
 
   return (
     <PageTransition className="page-container">
@@ -65,7 +99,13 @@ const Checkout = () => {
           </div>
 
           <div className="p-8 space-y-6">
-            {!canCheckout && (
+            {customer.status === 'checked-out' && (
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                This customer has already been checked out.
+              </Alert>
+            )}
+
+            {!canCheckout && customer.status === 'checked-in' && balanceAmount > 0 && (
               <Alert severity="error" sx={{ borderRadius: 2 }}>
                 Customer cannot be checked out until the pending balance amount is cleared.
               </Alert>
@@ -80,8 +120,10 @@ const Checkout = () => {
             <Divider />
 
             <Section icon={DoorOpen} title="Room Information">
+              <Info label="Floor" value={customer.floorNumber ? `Floor ${customer.floorNumber}` : '—'} />
               <Info label="Room" value={customer.roomNumber ? `Room ${customer.roomNumber}` : '—'} />
               <Info label="Bed" value={customer.bedNumber ? `Bed ${customer.bedNumber}` : '—'} />
+              <Info label="Bed Status" value={bed?.status || '—'} />
             </Section>
 
             <Divider />
@@ -101,11 +143,11 @@ const Checkout = () => {
               fullWidth
               size="large"
               onClick={handleCheckout}
-              disabled={!canCheckout}
+              disabled={!canCheckout || loading}
               className="gradient-royal! py-3! mt-4!"
-              startIcon={<CheckCircle size={20} />}
+              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <CheckCircle size={20} />}
             >
-              Complete Checkout
+              {loading ? 'Processing...' : 'Complete Checkout'}
             </Button>
           </div>
         </motion.div>
@@ -132,7 +174,7 @@ const Checkout = () => {
           </motion.div>
           <Typography variant="h6" className="font-[Poppins]!">{customer.name} has been checked out successfully!</Typography>
           <Typography variant="body2" color="text.secondary" className="mt-2">
-            Room {customer.roomNumber} · Bed {customer.bedNumber} is now available. Customer moved to history.
+            Room {customer.roomNumber} · Bed {customer.bedNumber} is now vacant and available for booking.
           </Typography>
         </div>
       </Modal>

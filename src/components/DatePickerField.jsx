@@ -10,16 +10,23 @@ const DatePickerField = ({ label, value, onChange, sx = {}, disabled = false }) 
     value={value ? dayjs(value) : null}
     disabled={disabled}
     onChange={(date) => onChange(date ? date.format('YYYY-MM-DD') : '')}
-    slotProps={{
-      popper: { sx: popperSx, placement: 'bottom-start' },
-      mobilePaper: { sx: popperSx },
-      desktopPaper: { sx: popperSx },
+        slotProps={{
+      popper: { sx: { zIndex: 1700 }, placement: 'bottom-start' },
+      mobilePaper: { sx: { zIndex: 1700 } },
+      desktopPaper: { sx: { zIndex: 1700 } },
       textField: {
         fullWidth: true,
         size: 'small',
-        sx: { ...fieldSx, ...sx },
+        sx: {
+          ...fieldSx,
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          ...sx,
+        },
       },
     }}
+    sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
   />
 )
 

@@ -19,7 +19,11 @@ const RightDrawer = ({
       open={open}
       onClose={onClose}
       variant="temporary"
-      ModalProps={{ keepMounted: true }}
+      ModalProps={{
+        keepMounted: false,
+        disableEnforceFocus: true,
+        disableAutoFocus: true,
+      }}
       slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(15, 23, 42, 0.35)' } } }}
       sx={{
         zIndex: 1400,

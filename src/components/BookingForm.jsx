@@ -3,22 +3,16 @@ import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
 import { formatCurrency, parseDurationInput } from '../utils/helpers'
-import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx } from '../utils/layout'
+import { getVacantFloors, getVacantRooms, getVacantBedsForRoom, filterVacantBeds, enrichBedsWithRooms, normId } from '../utils/vacancyHelpers'
+import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx, drawerSelectMenuProps } from '../utils/layout'
 import DateTimeSplitField, { combineDateAndTime } from './DateTimeSplitField'
 import DatePickerField from './DatePickerField'
 import FileUpload from './FileUpload'
-
-const selectMenuProps = {
-  disablePortal: true,
-  PaperProps: { sx: { maxHeight: 280 } },
-}
+import PaymentStatusSelect from './PaymentStatusSelect'
 
 const paymentTypes = ['Cash', 'UPI', 'Card', 'Bank Transfer']
 
-const rowSx = { display: 'flex', gap: 1.5, width: '100%', flexWrap: { xs: 'wrap', sm: 'nowrap' } }
-const thirdFieldSx = { ...fieldSx, flex: 1, minWidth: { xs: '100%', sm: 0 } }
-
-const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
+const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false }) => {
   const [photoFile, setPhotoFile] = useState(null)
   const [aadhaarFile, setAadhaarFile] = useState(null)
   const [aadhaarBackFile, setAadhaarBackFile] = useState(null)
@@ -53,33 +47,37 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
   const checkInDate = watch('checkInDate')
   const checkInTime = watch('checkInTime')
 
-  const vacantBedsList = useMemo(() => beds.filter((b) => b.status === 'vacant'), [beds])
-
-  const vacantFloors = useMemo(() => {
-    const floorIds = new Set(vacantBedsList.map((b) => b.floorId))
-    const floorNumbers = new Set(vacantBedsList.map((b) => b.floorNumber))
-    return floors.filter((f) => floorIds.has(f.id) || floorNumbers.has(f.number))
-  }, [floors, vacantBedsList])
-
-  const vacantRooms = useMemo(() => {
-    if (!selectedFloor) return []
-    const selectedFloorData = floors.find((f) => f.id === selectedFloor)
-    const roomIds = new Set(vacantBedsList.map((b) => b.roomId))
-    return rooms.filter((r) => {
-      if (!roomIds.has(r.id)) return false
-      if (r.floorId === selectedFloor) return true
-      if (selectedFloorData && r.floorNumber === selectedFloorData.number) return true
-      return false
-    })
-  }, [rooms, vacantBedsList, selectedFloor, floors])
-
+  const enrichedBeds = useMemo(() => enrichBedsWithRooms(beds, rooms), [beds, rooms])
+  const vacantBedsList = useMemo(() => filterVacantBeds(enrichedBeds), [enrichedBeds])
+  const vacantFloors = useMemo(
+    () => getVacantFloors(floors, vacantBedsList, rooms),
+    [floors, vacantBedsList, rooms],
+  )
+  const vacantRooms = useMemo(
+    () => getVacantRooms(rooms, vacantBedsList, floors, selectedFloor),
+    [rooms, vacantBedsList, floors, selectedFloor],
+  )
   const filteredBeds = useMemo(
-    () => vacantBedsList.filter((b) => b.roomId === selectedRoom),
-    [vacantBedsList, selectedRoom],
+    () => getVacantBedsForRoom(vacantBedsList, selectedRoom, rooms),
+    [vacantBedsList, selectedRoom, rooms],
   )
 
-  const selectedBedData = beds.find((b) => b.id === selectedBed)
+  const selectedBedData = enrichedBeds.find((b) => normId(b.id) === normId(selectedBed))
   const balanceAmount = Math.max(0, totalAmount - (advancePaid || 0))
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    console.log('floors', floors)
+    console.log('rooms', rooms)
+    console.log('beds', beds)
+    console.log('vacantBedsList', vacantBedsList)
+    console.log('vacantFloors', vacantFloors)
+    console.log('vacantRooms', vacantRooms)
+    console.log('filteredBeds', filteredBeds)
+    console.log('selectedFloor', selectedFloor)
+    console.log('selectedRoom', selectedRoom)
+    console.log('selectedBed', selectedBed)
+  }, [floors, rooms, beds, vacantBedsList, vacantFloors, vacantRooms, filteredBeds, selectedFloor, selectedRoom, selectedBed])
 
   useEffect(() => { setValue('roomId', ''); setValue('bedId', '') }, [selectedFloor, setValue])
   useEffect(() => { setValue('bedId', '') }, [selectedRoom, setValue])
@@ -94,6 +92,13 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
   }, [balanceAmount, totalAmount, setValue])
 
   const handleFormSubmit = (data) => {
+    if (!data.floorId || !data.roomId || !data.bedId) {
+      return
+    }
+    if (!selectedBedData || !filterVacantBeds([selectedBedData]).length) {
+      return
+    }
+
     const checkInDateTime = combineDateAndTime(data.checkInDate, data.checkInTime)
 
     onSubmit({
@@ -125,7 +130,17 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0, maxWidth: '100%', width: '100%' }}>
+      {loading && (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 1 }}>
+          Loading available beds...
+        </Typography>
+      )}
+      {!loading && vacantBedsList.length === 0 && (
+        <Typography variant="body2" color="error" sx={{ textAlign: 'center', py: 1 }}>
+          No vacant beds available
+        </Typography>
+      )}
       <Section title="Customer Information">
         <Field control={control} name="name" label="Full Name" rules={{ required: 'Name is required' }} errors={errors} />
         <Field control={control} name="phone" label="Phone Number" rules={{ required: 'Phone is required' }} errors={errors} />
@@ -158,11 +173,16 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
             error={!!errors.floorId}
             helperText={errors.floorId?.message || (vacantFloors.length === 0 ? 'No floors with vacant beds' : '')}
             sx={fieldSx}
-            SelectProps={{ MenuProps: selectMenuProps }}
+            SelectProps={{ MenuProps: drawerSelectMenuProps }}
           >
             {vacantFloors.length === 0
               ? <MenuItem value="" disabled>No vacant floors available</MenuItem>
-              : vacantFloors.map((f) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}
+              : [
+                <MenuItem key="" value=""><em>Select floor</em></MenuItem>,
+                ...vacantFloors.map((f) => (
+                  <MenuItem key={f.id} value={f.id}>{f.name || `Floor ${f.number}`}</MenuItem>
+                )),
+              ]}
           </TextField>
         )} />
         <Controller name="roomId" control={control} rules={{ required: 'Select a room' }} render={({ field }) => (
@@ -178,14 +198,27 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
               || (!selectedFloor ? 'Select a floor first' : vacantRooms.length === 0 ? 'No vacant rooms on this floor' : '')
             }
             sx={fieldSx}
-            SelectProps={{ MenuProps: selectMenuProps }}
+            SelectProps={{ MenuProps: drawerSelectMenuProps }}
           >
             {vacantRooms.length === 0
               ? <MenuItem value="" disabled>No vacant rooms available</MenuItem>
-              : vacantRooms.map((r) => <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>)}
+              : [
+                <MenuItem key="" value=""><em>Select room</em></MenuItem>,
+                ...vacantRooms.map((r) => (
+                  <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>
+                )),
+              ]}
           </TextField>
         )} />
-        <Controller name="bedId" control={control} rules={{ required: 'Select a bed' }} render={({ field }) => (
+        <Controller name="bedId" control={control} rules={{
+          required: 'Select a bed',
+          validate: (value) => {
+            const bed = enrichedBeds.find((b) => normId(b.id) === normId(value))
+            if (!bed) return 'Select a bed'
+            if (!filterVacantBeds([bed]).length) return 'Selected bed is already occupied'
+            return true
+          },
+        }} render={({ field }) => (
           <TextField
             {...field}
             select
@@ -198,22 +231,37 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
               || (!selectedRoom ? 'Select a room first' : filteredBeds.length === 0 ? 'No vacant beds in this room' : '')
             }
             sx={fieldSx}
-            SelectProps={{ MenuProps: selectMenuProps }}
+            SelectProps={{ MenuProps: drawerSelectMenuProps }}
           >
             {filteredBeds.length === 0
               ? <MenuItem value="" disabled>No vacant beds available</MenuItem>
-              : filteredBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber} — {formatCurrency(b.cost)}</MenuItem>)}
+              : [
+                <MenuItem key="" value=""><em>Select bed</em></MenuItem>,
+                ...filteredBeds.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber} — {formatCurrency(b.cost)}</MenuItem>
+                )),
+              ]}
           </TextField>
         )} />
-        <Box sx={rowSx}>
+        {selectedBedData && (
+          <Box sx={{ gridColumn: '1 / -1', p: 1.5, bgcolor: '#f8fafc', borderRadius: 1 }}>
+            <Typography variant="caption" color="text.secondary">Bed Details</Typography>
+            <Typography variant="body2">
+              Bed {selectedBedData.bedNumber} · {selectedBedData.bedType || 'Standard'} · {formatCurrency(selectedBedData.cost)}/night
+            </Typography>
+          </Box>
+        )}
+        <Box sx={{ gridColumn: '1 / -1' }}>
           <Controller name="duration" control={control} rules={{ required: 'Duration is required' }} render={({ field }) => (
             <TextField
               {...field}
+              fullWidth
               label="Duration"
               placeholder="e.g. 3 Days, 2 Weeks"
               error={!!errors.duration}
               helperText={errors.duration?.message}
-              sx={{ ...amountFieldSx, flex: 1 }}
+              sx={amountFieldSx}
+              size="small"
             />
           )} />
         </Box>
@@ -234,64 +282,60 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel }) => {
         <Controller name="totalAmount" control={control} rules={{ required: true, min: 0 }} render={({ field }) => (
           <TextField
             {...field}
+            fullWidth
             type="number"
             label="Total Amount"
             onChange={(e) => field.onChange(Number(e.target.value))}
             sx={amountFieldSx}
+            size="small"
           />
         )} />
 
-        <Box sx={rowSx}>
-          <Controller name="advancePaid" control={control} render={({ field }) => (
-            <TextField {...field} type="number" label="Advance" onChange={(e) => field.onChange(Number(e.target.value))} sx={thirdFieldSx} />
-          )} />
-          <Controller name="advancePaymentType" control={control} render={({ field }) => (
-            <TextField {...field} select label="Advance Payment Type" sx={thirdFieldSx}>
-              {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-            </TextField>
-          )} />
-          <Controller name="advancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
-            <DatePickerField label="Advance Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} />
-          )} />
-        </Box>
-        <Controller name="paymentStatus" control={control} render={({ field }) => (
-          <TextField {...field} select label="Advance Payment Status" sx={{ ...fieldSx, gridColumn: '1 / -1' }}>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="completed">Paid</MenuItem>
+        <Controller name="advancePaid" control={control} render={({ field }) => (
+          <TextField {...field} fullWidth type="number" label="Advance" onChange={(e) => field.onChange(Number(e.target.value))} sx={amountFieldSx} size="small" />
+        )} />
+        <Controller name="advancePaymentType" control={control} render={({ field }) => (
+          <TextField {...field} select fullWidth label="Advance Payment Type" sx={fieldSx} size="small" SelectProps={{ MenuProps: drawerSelectMenuProps }}>
+            {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
           </TextField>
         )} />
+        <Controller name="advancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
+          <DatePickerField label="Advance Payment Date" value={value} onChange={onChange} />
+        )} />
+        <Controller name="paymentStatus" control={control} render={({ field }) => (
+          <PaymentStatusSelect label="Advance Payment Status" value={field.value} onChange={field.onChange} />
+        )} />
 
-        <Box sx={rowSx}>
-          <TextField
-            label="Balance"
-            value={formatCurrency(balanceAmount)}
-            InputProps={{ readOnly: true }}
-            sx={{ ...thirdFieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#c2410c' : '#15803d' } }}
-          />
-          {balanceAmount > 0 && (
-            <>
-              <Controller name="balancePaymentType" control={control} render={({ field }) => (
-                <TextField {...field} select label="Balance Payment Type" sx={thirdFieldSx}>
-                  {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                </TextField>
-              )} />
-              <Controller name="balancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
-                <DatePickerField label="Balance Payment Date" value={value} onChange={onChange} sx={thirdFieldSx} />
-              )} />
-              <Controller name="balancePaymentStatus" control={control} render={({ field }) => (
-                <TextField {...field} select label="Balance Payment Status" sx={thirdFieldSx}>
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="completed">Paid</MenuItem>
-                </TextField>
-              )} />
-            </>
-          )}
-        </Box>
+        <TextField
+          fullWidth
+          label="Balance"
+          value={formatCurrency(balanceAmount)}
+          InputProps={{ readOnly: true }}
+          sx={{ ...fieldSx, '& input': { fontWeight: 600, color: balanceAmount > 0 ? '#ea580c' : '#15803d' } }}
+          size="small"
+        />
+        {balanceAmount > 0 && (
+          <>
+            <Controller name="balancePaymentType" control={control} render={({ field }) => (
+              <TextField {...field} select fullWidth label="Balance Payment Type" sx={fieldSx} size="small" SelectProps={{ MenuProps: drawerSelectMenuProps }}>
+                {paymentTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
+            )} />
+            <Controller name="balancePaymentDate" control={control} render={({ field: { value, onChange } }) => (
+              <DatePickerField label="Balance Payment Date" value={value} onChange={onChange} />
+            )} />
+            <Controller name="balancePaymentStatus" control={control} render={({ field }) => (
+              <PaymentStatusSelect label="Balance Payment Status" value={field.value} onChange={field.onChange} />
+            )} />
+          </>
+        )}
       </Section>
 
       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>
         <Button variant="outlined" onClick={onCancel} sx={{ height: 44 }}>Cancel</Button>
-        <Button type="submit" variant="contained" sx={primaryButtonSx}>Save Booking</Button>
+        <Button type="submit" variant="contained" sx={primaryButtonSx} disabled={loading || vacantBedsList.length === 0}>
+          Save Booking
+        </Button>
       </Box>
     </Box>
   )

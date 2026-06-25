@@ -11,9 +11,11 @@ import TenantForm from '../components/monthlyPayments/TenantForm'
 import CustomerDetailCards from '../components/CustomerDetailCards'
 import { MergedCell, GridActions } from '../components/tableCells'
 import { useMonthlyPayments, useAppDispatch, useHotel, useCustomers } from '../hooks/useStore'
+import { useVacancyOptions } from '../hooks/useVacancyOptions'
 import { formatCurrency, displayValue } from '../utils/helpers'
 import PageToolbar from '../components/PageToolbar'
 import { toolbarEqualFieldSx, toolbarButtonSx } from '../utils/layout'
+import { filterVacantBeds, normId } from '../utils/vacancyHelpers'
 import { loadMonthlyPayments, loadCustomers, loadRooms } from '../services/dataService'
 import { monthlyPaymentsApi } from '../services/endpoints'
 import {
@@ -30,7 +32,7 @@ const FILTER_PENDING = 'pending'
 
 const MonthlyPayments = () => {
   const { tenants } = useMonthlyPayments()
-  const { floors, rooms, beds } = useHotel()
+  const { floors: storeFloors, rooms: storeRooms, beds: storeBeds } = useHotel()
   const { list: customers } = useCustomers()
   const dispatch = useAppDispatch()
 
@@ -40,6 +42,15 @@ const MonthlyPayments = () => {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editTenant, setEditTenant] = useState(null)
   const [viewTenant, setViewTenant] = useState(null)
+
+  const vacancy = useVacancyOptions({
+    enabled: drawerOpen || !!editTenant,
+    debugLabel: 'TenantForm',
+  })
+  const floors = drawerOpen || editTenant ? vacancy.floors : storeFloors
+  const rooms = drawerOpen || editTenant ? vacancy.rooms : storeRooms
+  const beds = drawerOpen || editTenant ? vacancy.beds : storeBeds
+  const roomsLoading = vacancy.loading
 
   useEffect(() => {
     Promise.all([
@@ -114,6 +125,17 @@ const MonthlyPayments = () => {
   })
 
   const handleAddTenant = async (data) => {
+    if (!data.floorId || !data.roomId || !data.bedId) {
+      toast.error('Please select floor, room, and bed')
+      return
+    }
+    const bed = beds.find((b) => normId(b.id) === normId(data.bedId))
+    if (!bed || !filterVacantBeds([bed]).length) {
+      toast.error('Selected bed is no longer available. Please choose another bed.')
+      await vacancy.reload()
+      return
+    }
+
     try {
       const bed = beds.find((b) => b.id === data.bedId)
       await monthlyPaymentsApi.create(buildTenantPayload(data, bed))
@@ -296,13 +318,16 @@ const MonthlyPayments = () => {
         title="Add Monthly Tenant"
         variant="booking"
       >
-        <TenantForm
-          floors={floors}
-          rooms={rooms}
-          beds={beds}
-          onSubmit={handleAddTenant}
-          onCancel={() => setDrawerOpen(false)}
-        />
+        {drawerOpen && (
+          <TenantForm
+            floors={floors}
+            rooms={rooms}
+            beds={beds}
+            loading={roomsLoading}
+            onSubmit={handleAddTenant}
+            onCancel={() => setDrawerOpen(false)}
+          />
+        )}
       </RightDrawer>
 
       <RightDrawer
@@ -319,6 +344,7 @@ const MonthlyPayments = () => {
             tenant={editTenant}
             customer={editCustomer}
             editMode
+            loading={roomsLoading}
             onSubmit={handleEditTenant}
             onCancel={() => setEditTenant(null)}
           />

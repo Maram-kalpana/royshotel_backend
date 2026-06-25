@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { TextField, Button, IconButton, Box } from '@mui/material'
-import { Eye, Trash2 } from 'lucide-react'
+import { Eye, Trash2, LogOut } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '../components/PageTransition'
 import MuiDataGrid from '../components/MuiDataGrid'
@@ -20,6 +21,7 @@ import { customersApi } from '../services/endpoints'
 import { useAppDispatch } from '../hooks/useStore'
 
 const Customers = () => {
+  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { list } = useCustomers()
   const { list: bookings } = useBookings()
@@ -116,6 +118,9 @@ const Customers = () => {
       renderCell: ({ row }) => (
         <VerticalActions>
           <CompactIconButton color="info" onClick={() => openView(row)} title="View"><Eye /></CompactIconButton>
+          {row.status === 'checked-in' && (
+            <CompactIconButton color="success" onClick={() => navigate(`/checkout/${row.id}`)} title="Checkout"><LogOut /></CompactIconButton>
+          )}
           <CompactIconButton color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 /></CompactIconButton>
         </VerticalActions>
       ),
@@ -139,6 +144,11 @@ const Customers = () => {
       renderCell: ({ row }) => (
         <div className="flex items-center gap-0.5 h-full">
           <IconButton size="small" color="info" onClick={() => openView(row)} title="View"><Eye size={16} /></IconButton>
+          {row.status === 'checked-in' && (
+            <IconButton size="small" color="success" onClick={() => navigate(`/checkout/${row.id}`)} title="Checkout">
+              <LogOut size={16} />
+            </IconButton>
+          )}
           <IconButton size="small" color="error" onClick={() => handleDelete(row)} title="Delete"><Trash2 size={16} /></IconButton>
         </div>
       ),

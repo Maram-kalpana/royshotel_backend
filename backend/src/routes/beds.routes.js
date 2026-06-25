@@ -11,6 +11,7 @@ router.get('/vacant', (req, res, next) => {
   req.query.status = 'vacant'
   roomController.listBeds(req, res, next)
 })
+router.patch('/:id', roomController.updateBed)
 router.delete('/:id', roomController.deleteBed)
 
 export default router

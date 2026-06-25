@@ -3,11 +3,12 @@ import { TextField, MenuItem, Typography, Box } from '@mui/material'
 import DatePickerField from './DatePickerField'
 import DateTimeSplitField, { splitDateTime } from './DateTimeSplitField'
 import PaymentStatusSelect from './PaymentStatusSelect'
+import { getVacantFloors, getVacantRooms, getVacantBedsForRoom, filterVacantBeds } from '../utils/vacancyHelpers'
 import { formatCurrency } from '../utils/helpers'
-import { fieldSx, drawerFormStackSx, amountFieldSx, drawerSectionSx } from '../utils/layout'
+import { fieldSx, drawerFormStackSx, amountFieldSx, drawerSectionSx, drawerSelectMenuProps } from '../utils/layout'
 
 const paymentTypes = ['Cash', 'UPI', 'Card', 'Bank Transfer']
-const selectMenuProps = { sx: { zIndex: 1600 }, PaperProps: { sx: { maxHeight: 280 } } }
+const selectMenuProps = drawerSelectMenuProps
 
 const Section = ({ title, children }) => (
   <Box sx={{ ...drawerSectionSx }}>
@@ -24,29 +25,21 @@ const BookingEditForm = ({
   form,
   onChange,
 }) => {
-  const vacantBedsList = useMemo(() => beds.filter((b) => b.status === 'vacant'), [beds])
+  const vacantBedsList = useMemo(() => filterVacantBeds(beds), [beds])
 
-  const vacantFloors = useMemo(() => {
-    const floorIds = new Set(vacantBedsList.map((b) => b.floorId))
-    const floorNumbers = new Set(vacantBedsList.map((b) => b.floorNumber))
-    return floors.filter((f) => floorIds.has(f.id) || floorNumbers.has(f.number))
-  }, [floors, vacantBedsList])
+  const vacantFloors = useMemo(
+    () => getVacantFloors(floors, vacantBedsList, rooms),
+    [floors, vacantBedsList, rooms],
+  )
 
-  const shiftRooms = useMemo(() => {
-    if (!form.newFloorId) return []
-    const selectedFloorData = floors.find((f) => f.id === form.newFloorId)
-    const roomIds = new Set(vacantBedsList.map((b) => b.roomId))
-    return rooms.filter((r) => {
-      if (!roomIds.has(r.id)) return false
-      if (r.floorId === form.newFloorId) return true
-      if (selectedFloorData && r.floorNumber === selectedFloorData.number) return true
-      return false
-    })
-  }, [rooms, vacantBedsList, form.newFloorId, floors])
+  const shiftRooms = useMemo(
+    () => getVacantRooms(rooms, vacantBedsList, floors, form.newFloorId),
+    [rooms, vacantBedsList, floors, form.newFloorId],
+  )
 
   const shiftBeds = useMemo(
-    () => vacantBedsList.filter((b) => b.roomId === form.newRoomId),
-    [vacantBedsList, form.newRoomId],
+    () => getVacantBedsForRoom(vacantBedsList, form.newRoomId, rooms),
+    [vacantBedsList, form.newRoomId, rooms],
   )
 
   const checkIn = splitDateTime(booking.checkInDateTime || booking.checkInDate || '')
@@ -179,15 +172,21 @@ const BookingEditForm = ({
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', gridColumn: '1 / -1', mt: 0.5 }}>New Location</Typography>
         <TextField select fullWidth label="New Floor" value={form.newFloorId} onChange={(e) => onChange({ newFloorId: e.target.value, newRoomId: '', newBedId: '' })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
           <MenuItem value="">Select floor</MenuItem>
-          {vacantFloors.map((f) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}
+          {vacantFloors.length === 0
+            ? <MenuItem value="" disabled>No vacant floors available</MenuItem>
+            : vacantFloors.map((f) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}
         </TextField>
         <TextField select fullWidth label="New Room" value={form.newRoomId} disabled={!form.newFloorId} onChange={(e) => onChange({ newRoomId: e.target.value, newBedId: '' })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
           <MenuItem value="">Select room</MenuItem>
-          {shiftRooms.map((r) => <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>)}
+          {shiftRooms.length === 0
+            ? <MenuItem value="" disabled>No vacant rooms available</MenuItem>
+            : shiftRooms.map((r) => <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>)}
         </TextField>
         <TextField select fullWidth label="New Bed" value={form.newBedId} disabled={!form.newRoomId} onChange={(e) => onChange({ newBedId: e.target.value })} sx={fieldSx} size="small" SelectProps={{ MenuProps: selectMenuProps }}>
           <MenuItem value="">Select bed</MenuItem>
-          {shiftBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber}</MenuItem>)}
+          {shiftBeds.length === 0
+            ? <MenuItem value="" disabled>No vacant beds available</MenuItem>
+            : shiftBeds.map((b) => <MenuItem key={b.id} value={b.id}>Bed {b.bedNumber}</MenuItem>)}
         </TextField>
       </Section>
     </Box>

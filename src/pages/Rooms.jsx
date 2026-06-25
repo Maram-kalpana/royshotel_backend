@@ -11,7 +11,7 @@ import { roomsApi, bedsApi } from '../services/endpoints'
 import { formatCurrency, displayValue } from '../utils/helpers'
 import { MergedCell, VerticalActions } from '../components/tableCells'
 import PageToolbar from '../components/PageToolbar'
-import { fieldSx, primaryButtonSx, amountFieldSx, toolbarSearchSx, toolbarButtonSx } from '../utils/layout'
+import { fieldSx, primaryButtonSx, amountFieldSx, toolbarSearchSx, toolbarButtonSx, drawerSelectMenuProps } from '../utils/layout'
 import toast from 'react-hot-toast'
 
 const acTypes = ['A/C', 'Non A/C']
@@ -346,6 +346,7 @@ const Rooms = () => {
             value={form.acType}
             onChange={(e) => setForm({ ...form, acType: e.target.value })}
             sx={fieldSx}
+            SelectProps={{ MenuProps: drawerSelectMenuProps }}
           >
             {acTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
           </TextField>

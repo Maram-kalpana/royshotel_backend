@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Button, IconButton, TextField, MenuItem, Box } from '@mui/material'
+import { Button, IconButton, TextField, MenuItem, Box, Typography } from '@mui/material'
 import { Plus, Eye, Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '../components/PageTransition'
@@ -12,9 +12,11 @@ import BookingEditForm from '../components/BookingEditForm'
 import CustomerDetailCards from '../components/CustomerDetailCards'
 import { MergedCell, VerticalActions, CompactIconButton } from '../components/tableCells'
 import { useAuth, useAppDispatch, useHotel, useBookings, useCustomers, useMonthlyPayments } from '../hooks/useStore'
+import { useVacancyOptions } from '../hooks/useVacancyOptions'
 import { formatCurrency, ROLES, getPaymentStatus, formatStayDuration } from '../utils/helpers'
 import PageToolbar from '../components/PageToolbar'
 import { filterFieldSx, primaryButtonSx, toolbarEqualFieldSx, toolbarButtonSx } from '../utils/layout'
+import { filterVacantBeds, normId } from '../utils/vacancyHelpers'
 import { loadBookings, loadCustomers, loadRooms } from '../services/dataService'
 import { bookingsApi } from '../services/endpoints'
 
@@ -41,7 +43,7 @@ const emptyEditForm = {
 const BookingsContent = () => {
   const { user } = useAuth()
   const isSuperAdmin = user?.role === ROLES.SUPER_ADMIN
-  const { floors, rooms, beds } = useHotel()
+  const { floors: storeFloors, rooms: storeRooms, beds: storeBeds } = useHotel()
   const { list: bookings } = useBookings()
   const { list: customers } = useCustomers()
   const { tenants } = useMonthlyPayments()
@@ -56,6 +58,12 @@ const BookingsContent = () => {
   const [editForm, setEditForm] = useState(emptyEditForm)
   const [editSnapshot, setEditSnapshot] = useState(null)
   const updateEditForm = (patch) => setEditForm((prev) => ({ ...prev, ...patch }))
+
+  const vacancy = useVacancyOptions({ enabled: drawerOpen || !!editBooking, debugLabel: 'BookingForm' })
+  const floors = drawerOpen || editBooking ? vacancy.floors : storeFloors
+  const rooms = drawerOpen || editBooking ? vacancy.rooms : storeRooms
+  const beds = drawerOpen || editBooking ? vacancy.beds : storeBeds
+  const roomsLoading = vacancy.loading
 
   useEffect(() => {
     Promise.all([
@@ -142,6 +150,17 @@ const BookingsContent = () => {
   }
 
   const handleSubmit = async (data) => {
+    if (!data.floorId || !data.roomId || !data.bedId) {
+      toast.error('Please select floor, room, and bed')
+      return
+    }
+    const bed = beds.find((b) => normId(b.id) === normId(data.bedId))
+    if (!bed || !filterVacantBeds([bed]).length) {
+      toast.error('Selected bed is no longer available. Please choose another bed.')
+      await vacancy.reload()
+      return
+    }
+
     try {
       await bookingsApi.create({
         name: data.name,
@@ -464,6 +483,10 @@ const BookingsContent = () => {
               onChange={setBookingDate}
               sx={toolbarEqualFieldSx}
             />
+          </>
+        )}
+        secondary={(
+          <>
             <TextField
               select
               label="Status"
@@ -477,20 +500,32 @@ const BookingsContent = () => {
               <MenuItem value="pending">Pending</MenuItem>
               <MenuItem value="completed">Paid</MenuItem>
             </TextField>
+            <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDrawerOpen(true)} sx={toolbarButtonSx}>
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Booking</Box>
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Add</Box>
+            </Button>
           </>
-        )}
-        action={(
-          <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDrawerOpen(true)} sx={toolbarButtonSx}>
-            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Booking</Box>
-            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Add</Box>
-          </Button>
         )}
       />
 
       <MuiDataGrid rows={tableRows} columns={columns} compactColumns={compactColumns} pageSize={10} noHorizontalScroll />
 
+      {vacancy.error && (
+        <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+          {vacancy.error} — try closing and reopening the form.
+        </Typography>
+      )}
       <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add Booking" variant="booking">
-        <BookingForm floors={floors} rooms={rooms} beds={beds} onSubmit={handleSubmit} onCancel={() => setDrawerOpen(false)} />
+        {drawerOpen && (
+          <BookingForm
+            floors={floors}
+            rooms={rooms}
+            beds={beds}
+            loading={roomsLoading}
+            onSubmit={handleSubmit}
+            onCancel={() => setDrawerOpen(false)}
+          />
+        )}
       </RightDrawer>
 
       <RightDrawer
