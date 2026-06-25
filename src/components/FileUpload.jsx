@@ -24,8 +24,15 @@ const FileUpload = ({
   const [cameraError, setCameraError] = useState('')
 
   const imageOnly = accept === IMAGE_ACCEPT || !accept.includes('pdf')
-  const isImage = value?.type?.startsWith('image/') || (value?.preview && !value?.name?.endsWith('.pdf'))
-  const isPdf = value?.type === 'application/pdf' || value?.name?.endsWith('.pdf')
+  // Explicit check: treat as image if type starts with image/, OR if it has a
+  // blob/object-URL preview (captured photos always have one), OR filename ends
+  // with a known image extension — but NOT if it's a PDF.
+  const isPdf = value?.type === 'application/pdf' || value?.name?.toLowerCase().endsWith('.pdf')
+  const isImage =
+    !isPdf &&
+    (value?.type?.startsWith('image/') ||
+      !!value?.preview ||
+      /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(value?.name ?? ''))
 
   const handleFile = (file) => {
     if (!file) return
@@ -55,6 +62,86 @@ const FileUpload = ({
     cameraInputRef.current?.click()
   }
 
+  // ─── Attach stream to video element ───────────────────────────────────────
+  // Uses a ref-callback approach so the stream is attached the moment the
+  // <video> DOM node exists, avoiding the race between useEffect and Dialog
+  // mounting (which was causing the black screen / "Starting camera…" hang).
+  const attachStream = useCallback((videoEl) => {
+    videoRef.current = videoEl
+
+    if (!videoEl || !streamRef.current) return
+
+    setCameraReady(false)
+    setCameraError('')
+
+    const checkReady = () => {
+      if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+        setCameraReady(true)
+        return true
+      }
+      return false
+    }
+
+    const onReady = () => { checkReady() }
+
+    videoEl.addEventListener('loadedmetadata', onReady)
+    videoEl.addEventListener('loadeddata', onReady)
+    videoEl.addEventListener('canplay', onReady)
+
+    videoEl.srcObject = streamRef.current
+    videoEl.play().catch((err) => {
+      console.error('Video play failed:', err)
+      setCameraError('Could not start video preview. Please check camera permissions and try again.')
+    })
+
+    // Already ready (e.g. stream was warm)
+    checkReady()
+
+    const timeoutId = setTimeout(() => {
+      if (!checkReady()) {
+        setCameraError(
+          'Camera is taking too long to start. Please close and try again, or use "Choose File" instead.'
+        )
+      }
+    }, 6000)
+
+    // Store cleanup on the element so we can call it when Dialog unmounts
+    videoEl._cleanup = () => {
+      clearTimeout(timeoutId)
+      videoEl.removeEventListener('loadedmetadata', onReady)
+      videoEl.removeEventListener('loadeddata', onReady)
+      videoEl.removeEventListener('canplay', onReady)
+    }
+  }, [])
+
+  // Run cleanup when the video element is removed from the DOM
+  const videoRefCallback = useCallback(
+    (el) => {
+      // Cleanup previous element if any
+      if (videoRef.current && videoRef.current._cleanup) {
+        videoRef.current._cleanup()
+      }
+      if (el) {
+        attachStream(el)
+      } else {
+        videoRef.current = null
+      }
+    },
+    [attachStream]
+  )
+
+  // Re-attach whenever cameraOpen flips to true (Dialog re-mounts)
+  useEffect(() => {
+    if (!cameraOpen) return
+    // If the video element is already mounted (keepMounted scenario), attach now
+    if (videoRef.current && streamRef.current) {
+      attachStream(videoRef.current)
+    }
+  }, [cameraOpen, attachStream])
+
+  useEffect(() => () => stopStream(), [stopStream])
+
+  // ─── Open camera ──────────────────────────────────────────────────────────
   const openCamera = async () => {
     setCameraError('')
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -70,37 +157,18 @@ const FileUpload = ({
       streamRef.current = mediaStream
       setCameraOpen(true)
     } catch (err) {
-      console.warn('getUserMedia failed, using native camera input:', err)
-      setCameraError('Camera access denied or unavailable. Using device camera instead.')
+      console.warn('getUserMedia failed, falling back to native camera input:', err)
+      const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+      setCameraError(
+        isDenied
+          ? 'Camera permission denied. Please allow camera access in your browser settings.'
+          : 'Camera unavailable. Using device camera instead.'
+      )
       openNativeCamera()
     }
   }
 
-  useEffect(() => {
-    if (!cameraOpen || !streamRef.current) return undefined
-
-    const video = videoRef.current
-    if (!video) return undefined
-
-    video.srcObject = streamRef.current
-    setCameraReady(false)
-
-    const onReady = () => {
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        setCameraReady(true)
-      }
-    }
-
-    video.addEventListener('loadedmetadata', onReady)
-    video.play().catch(() => {})
-
-    return () => {
-      video.removeEventListener('loadedmetadata', onReady)
-    }
-  }, [cameraOpen])
-
-  useEffect(() => () => stopStream(), [stopStream])
-
+  // ─── Capture photo ────────────────────────────────────────────────────────
   const capturePhoto = () => {
     const video = videoRef.current
     const canvas = canvasRef.current
@@ -118,17 +186,23 @@ const FileUpload = ({
     const ctx = canvas.getContext('2d')
     ctx.drawImage(video, 0, 0)
 
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        setCameraError('Failed to capture photo. Please try again.')
-        return
-      }
-      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' })
-      handleFile(file)
-      stopStream()
-      setCameraOpen(false)
-      setCameraError('')
-    }, 'image/jpeg', 0.92)
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setCameraError('Failed to capture photo. Please try again.')
+          return
+        }
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' })
+        // Generate preview URL immediately from the blob so it's always available
+        const preview = URL.createObjectURL(blob)
+        onChange({ file, name: file.name, type: file.type, preview })
+        stopStream()
+        setCameraOpen(false)
+        setCameraError('')
+      },
+      'image/jpeg',
+      0.92
+    )
   }
 
   const closeCamera = () => {
@@ -137,11 +211,20 @@ const FileUpload = ({
     setCameraError('')
   }
 
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
-      <Typography variant="body2" sx={{ fontWeight: 600, color: '#475569', mb: 1 }}>{label}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 600, color: '#475569', mb: 1 }}>
+        {label}
+      </Typography>
 
-      <input ref={fileInputRef} type="file" accept={accept} hidden onChange={(e) => handleFile(e.target.files?.[0])} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={accept}
+        hidden
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
       {enableCamera && (
         <input
           ref={cameraInputRef}
@@ -156,13 +239,30 @@ const FileUpload = ({
 
       {!value ? (
         <Box sx={{ border: '2px dashed #cbd5e1', borderRadius: 2, p: 2, textAlign: 'center' }}>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1, justifyContent: 'center' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 1,
+              justifyContent: 'center',
+            }}
+          >
             {enableCamera && (
-              <Button variant="contained" startIcon={<Camera size={16} />} onClick={openCamera} sx={{ bgcolor: '#0B1F4D', '&:hover': { bgcolor: '#0a1a3d' }, height: 40 }}>
+              <Button
+                variant="contained"
+                startIcon={<Camera size={16} />}
+                onClick={openCamera}
+                sx={{ bgcolor: '#0B1F4D', '&:hover': { bgcolor: '#0a1a3d' }, height: 40 }}
+              >
                 Take Photo
               </Button>
             )}
-            <Button variant="outlined" startIcon={<Upload size={16} />} onClick={openFilePicker} sx={{ height: 40 }}>
+            <Button
+              variant="outlined"
+              startIcon={<Upload size={16} />}
+              onClick={openFilePicker}
+              sx={{ height: 40 }}
+            >
               Choose File
             </Button>
           </Box>
@@ -173,25 +273,67 @@ const FileUpload = ({
       ) : (
         <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 2, bgcolor: '#f8fafc' }}>
           {isImage && value.preview && (
-            <Box component="img" src={value.preview} alt={label} sx={{ width: '100%', maxHeight: 80, objectFit: 'cover', borderRadius: 1, mb: 1 }} />
+            <Box
+              component="img"
+              src={value.preview}
+              alt={label}
+              sx={{
+                width: '100%',
+                maxHeight: 200,
+                objectFit: 'contain',
+                borderRadius: 1,
+                mb: 1,
+                bgcolor: '#000',
+                display: 'block',
+              }}
+            />
           )}
           {isPdf && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, p: 1.5, bgcolor: '#fff', borderRadius: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                mb: 1,
+                p: 1.5,
+                bgcolor: '#fff',
+                borderRadius: 1,
+              }}
+            >
               <FileText size={28} className="text-red-500" />
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>PDF Document</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                PDF Document
+              </Typography>
             </Box>
           )}
-          <Typography variant="caption" sx={{ display: 'block', color: '#64748b', mb: 1, wordBreak: 'break-all' }}>{value.name}</Typography>
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', color: '#64748b', mb: 1, wordBreak: 'break-all' }}
+          >
+            {value.name}
+          </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {enableCamera && (
-              <Button size="small" variant="outlined" startIcon={<Camera size={14} />} onClick={openCamera}>Retake</Button>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Camera size={14} />}
+                onClick={openCamera}
+              >
+                Retake
+              </Button>
             )}
-            <Button size="small" variant="outlined" onClick={openFilePicker}>Replace</Button>
-            <IconButton size="small" color="error" onClick={handleRemove}><X size={16} /></IconButton>
+            <Button size="small" variant="outlined" onClick={openFilePicker}>
+              Replace
+            </Button>
+            <IconButton size="small" color="error" onClick={handleRemove}>
+              <X size={16} />
+            </IconButton>
           </Box>
         </Box>
       )}
 
+      {/* ── Camera Dialog ── */}
       <Dialog
         open={cameraOpen}
         onClose={closeCamera}
@@ -203,27 +345,49 @@ const FileUpload = ({
           backdrop: { sx: { zIndex: CAMERA_DIALOG_Z - 1 } },
         }}
         disableEnforceFocus
-        keepMounted={false}
+        // keepMounted removed — caused videoRef to be null when useEffect ran
       >
         <Box sx={{ p: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>{label}</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+            {label}
+          </Typography>
+
+          {/* ref callback ensures stream is attached as soon as the element exists */}
           <Box
             component="video"
-            ref={videoRef}
+            ref={videoRefCallback}
             autoPlay
             playsInline
             muted
-            sx={{ width: '100%', borderRadius: 1, bgcolor: '#000', maxHeight: 360, minHeight: 200 }}
+            sx={{
+              width: '100%',
+              borderRadius: 1,
+              bgcolor: '#000',
+              maxHeight: 360,
+              minHeight: 200,
+              display: 'block',
+            }}
           />
+
           {cameraError && (
-            <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>{cameraError}</Typography>
+            <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
+              {cameraError}
+            </Typography>
           )}
           {!cameraReady && !cameraError && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>Starting camera...</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              Starting camera…
+            </Typography>
           )}
+
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
             <Button onClick={closeCamera}>Cancel</Button>
-            <Button variant="contained" onClick={capturePhoto} disabled={!cameraReady} sx={{ bgcolor: '#0B1F4D' }}>
+            <Button
+              variant="contained"
+              onClick={capturePhoto}
+              disabled={!cameraReady}
+              sx={{ bgcolor: '#0B1F4D', '&:hover': { bgcolor: '#0a1a3d' } }}
+            >
               Capture
             </Button>
           </Box>

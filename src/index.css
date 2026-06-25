@@ -166,3 +166,8 @@ input[type='number']::-webkit-inner-spin-button {
 .horizontal-scrollbar::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
+/* Force select/menu popovers above drawers (MUI v9 doesn't forward
+   sx/slotProps from Select's MenuProps to the Menu's root Modal) */
+   .MuiModal-root.MuiPopover-root.MuiMenu-root {
+    z-index: 1500 !important;
+  }

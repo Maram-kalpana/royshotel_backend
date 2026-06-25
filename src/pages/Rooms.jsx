@@ -49,7 +49,7 @@ const Rooms = () => {
     const rows = []
     for (const room of rooms) {
       const roomBeds = beds
-        .filter((b) => b.roomId === room.id)
+        .filter((b) => String(b.roomId) === String(room.id))
         .sort((a, b) => a.bedNumber - b.bedNumber)
 
       if (!roomBeds.length) {
@@ -96,7 +96,7 @@ const Rooms = () => {
   const viewBeds = useMemo(() => {
     if (!viewRoom) return []
     return beds
-      .filter((b) => b.roomId === viewRoom.id)
+      .filter((b) => String(b.roomId) === String(viewRoom.id))
       .sort((a, b) => a.bedNumber - b.bedNumber)
   }, [viewRoom, beds])
 
@@ -109,7 +109,7 @@ const Rooms = () => {
 
   const openEdit = (row) => {
     const roomBeds = beds
-      .filter((b) => b.roomId === row.room.id)
+      .filter((b) => String(b.roomId) === String(row.room.id))
       .sort((a, b) => a.bedNumber - b.bedNumber)
 
     setEditMode(true)

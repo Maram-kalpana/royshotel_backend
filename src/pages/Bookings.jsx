@@ -78,7 +78,7 @@ const BookingsContent = () => {
       .filter((b) => !['Months', 'Monthly'].includes(b.stayType))
       .filter((b) => isSuperAdmin ? ['active', 'reserved', 'booked'].includes(b.status) : true)
       .map((b) => {
-        const customer = customers.find((c) => c.id === b.customerId)
+        const customer = customers.find((c) => String(c.id) === String(b.customerId))
         const status = b.paymentStatus || getPaymentStatus(b.balanceAmount)
         const bookingDate = (b.checkInDateTime || b.checkInDate || '').split('T')[0]
         const payments = b.payments || []
@@ -154,7 +154,7 @@ const BookingsContent = () => {
       toast.error('Please select floor, room, and bed')
       return
     }
-    const bed = beds.find((b) => normId(b.id) === normId(data.bedId))
+    const bed = beds.find((b) => String(b.id) === String(data.bedId))
     if (!bed || !filterVacantBeds([bed]).length) {
       toast.error('Selected bed is no longer available. Please choose another bed.')
       await vacancy.reload()
@@ -459,9 +459,9 @@ const BookingsContent = () => {
 
   const columns = bookingColumns
 
-  const viewCustomer = viewBooking ? customers.find((c) => c.id === viewBooking.customerId) : null
-  const viewBed = viewBooking ? beds.find((b) => b.id === viewBooking.bedId) : null
-  const viewMonthly = viewBooking ? tenants.find((t) => t.customerId === viewBooking.customerId) : null
+  const viewCustomer = viewBooking ? customers.find((c) => String(c.id) === String(viewBooking.customerId)) : null
+  const viewBed = viewBooking ? beds.find((b) => String(b.id) === String(viewBooking.bedId)) : null
+  const viewMonthly = viewBooking ? tenants.find((t) => String(t.customerId) === String(viewBooking.customerId)) : null
 
   return (
     <>
@@ -536,18 +536,26 @@ const BookingsContent = () => {
         compact
         footer={<Button onClick={() => setViewBooking(null)} sx={{ height: 44 }}>Close</Button>}
       >
-        {viewBooking && (
-          <CustomerDetailCards
-            customer={viewCustomer || {
-              id: viewBooking.customerId,
-              name: viewBooking.customerName,
-              phone: viewBooking.phone,
-            }}
-            booking={viewBooking}
-            bed={viewBed}
-            monthlyTenant={viewMonthly}
-          />
-        )}
+       {viewBooking && (
+  <CustomerDetailCards
+    customer={{
+      // base customer fields from store
+      ...(viewCustomer || {
+        id: viewBooking.customerId,
+        name: viewBooking.customerName,
+        phone: viewBooking.phone,
+      }),
+      // images — pull from booking since that's where they're saved
+      photo:        viewCustomer?.photo        || viewBooking?.photo,
+      aadhaarDoc:   viewCustomer?.aadhaarDoc   || viewBooking?.aadhaarDoc,
+      aadhaarFront: viewCustomer?.aadhaarFront || viewBooking?.aadhaarDoc  || viewBooking?.aadhaarFront,
+      aadhaarBack:  viewCustomer?.aadhaarBack  || viewBooking?.aadhaarBack,
+    }}
+    booking={viewBooking}
+    bed={viewBed}
+    monthlyTenant={viewMonthly}
+  />
+)}
       </RightDrawer>
 
       <RightDrawer
@@ -569,7 +577,7 @@ const BookingsContent = () => {
         {editBooking && (
           <BookingEditForm
             booking={editBooking}
-            customer={customers.find((c) => c.id === editBooking.customerId)}
+            customer={customers.find((c) => String(c.id) === String(editBooking.customerId))}
             floors={floors}
             rooms={rooms}
             beds={beds}

@@ -3,6 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
 import { formatCurrency, parseDurationInput } from '../utils/helpers'
+import { fileToBase64 } from '../utils/fileHelpers'
 import { getVacantFloors, getVacantRooms, getVacantBedsForRoom, filterVacantBeds, enrichBedsWithRooms, normId } from '../utils/vacancyHelpers'
 import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx, drawerSelectMenuProps } from '../utils/layout'
 import DateTimeSplitField, { combineDateAndTime } from './DateTimeSplitField'
@@ -16,6 +17,7 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
   const [photoFile, setPhotoFile] = useState(null)
   const [aadhaarFile, setAadhaarFile] = useState(null)
   const [aadhaarBackFile, setAadhaarBackFile] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const now = dayjs()
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
@@ -62,22 +64,8 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
     [vacantBedsList, selectedRoom, rooms],
   )
 
-  const selectedBedData = enrichedBeds.find((b) => normId(b.id) === normId(selectedBed))
+  const selectedBedData = enrichedBeds.find((b) => String(b.id) === String(selectedBed))
   const balanceAmount = Math.max(0, totalAmount - (advancePaid || 0))
-
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    console.log('floors', floors)
-    console.log('rooms', rooms)
-    console.log('beds', beds)
-    console.log('vacantBedsList', vacantBedsList)
-    console.log('vacantFloors', vacantFloors)
-    console.log('vacantRooms', vacantRooms)
-    console.log('filteredBeds', filteredBeds)
-    console.log('selectedFloor', selectedFloor)
-    console.log('selectedRoom', selectedRoom)
-    console.log('selectedBed', selectedBed)
-  }, [floors, rooms, beds, vacantBedsList, vacantFloors, vacantRooms, filteredBeds, selectedFloor, selectedRoom, selectedBed])
 
   useEffect(() => { setValue('roomId', ''); setValue('bedId', '') }, [selectedFloor, setValue])
   useEffect(() => { setValue('bedId', '') }, [selectedRoom, setValue])
@@ -91,42 +79,53 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
     else if (balanceAmount > 0) setValue('paymentStatus', 'pending')
   }, [balanceAmount, totalAmount, setValue])
 
-  const handleFormSubmit = (data) => {
-    if (!data.floorId || !data.roomId || !data.bedId) {
-      return
-    }
-    if (!selectedBedData || !filterVacantBeds([selectedBedData]).length) {
-      return
-    }
+  const handleFormSubmit = async (data) => {
+    if (!data.floorId || !data.roomId || !data.bedId) return
+    if (!selectedBedData || !filterVacantBeds([selectedBedData]).length) return
 
-    const checkInDateTime = combineDateAndTime(data.checkInDate, data.checkInTime)
+    setSubmitting(true)
+    try {
+      // ── Convert files to Base64 so they survive page reloads and DB storage ──
+      const [photoBase64, aadhaarFrontBase64, aadhaarBackBase64] = await Promise.all([
+        fileToBase64(photoFile?.file ?? null),
+        fileToBase64(aadhaarFile?.file ?? null),
+        fileToBase64(aadhaarBackFile?.file ?? null),
+      ])
 
-    onSubmit({
-      ...data,
-      stayType: parsedStayType,
-      duration: duration || 1,
-      durationLabel: parseDurationInput(data.duration).label,
-      checkInDateTime,
-      checkOutDateTime: null,
-      bedCost: selectedBedData?.cost || 0,
-      totalAmount,
-      balanceAmount,
-      advancePaymentDate: combineDateAndTime(data.advancePaymentDate, data.checkInTime),
-      balancePaymentDate: data.balancePaymentDate
-        ? combineDateAndTime(data.balancePaymentDate, data.checkInTime)
-        : '',
-      photoFile,
-      aadhaarFile,
-      photo: photoFile?.preview || null,
-      aadhaarFront: aadhaarFile?.preview || null,
-      aadhaarBack: aadhaarBackFile?.preview || null,
-      aadhaarDoc: aadhaarFile?.preview || null,
-      paymentStatus: balanceAmount > 0
-        ? (data.balancePaymentStatus === 'completed' ? 'completed' : 'pending')
-        : (data.paymentStatus === 'completed' ? 'completed' : 'pending'),
-    })
-    reset()
-    setPhotoFile(null); setAadhaarFile(null); setAadhaarBackFile(null)
+      const checkInDateTime = combineDateAndTime(data.checkInDate, data.checkInTime)
+
+      await onSubmit({
+        ...data,
+        stayType: parsedStayType,
+        duration: duration || 1,
+        durationLabel: parseDurationInput(data.duration).label,
+        checkInDateTime,
+        checkOutDateTime: null,
+        bedCost: selectedBedData?.cost || 0,
+        totalAmount,
+        balanceAmount,
+        advancePaymentDate: combineDateAndTime(data.advancePaymentDate, data.checkInTime),
+        balancePaymentDate: data.balancePaymentDate
+          ? combineDateAndTime(data.balancePaymentDate, data.checkInTime)
+          : '',
+        // ── Persistent base64 image strings ──────────────────────────────────
+        photo: photoBase64,           // used in BookingViewModal as customer.photo
+        aadhaarDoc: aadhaarFrontBase64, // Aadhaar front — shown as customer.aadhaarDoc
+        aadhaarBack: aadhaarBackBase64, // Aadhaar back  — shown as customer.aadhaarBack
+        paymentStatus: balanceAmount > 0
+          ? (data.balancePaymentStatus === 'completed' ? 'completed' : 'pending')
+          : (data.paymentStatus === 'completed' ? 'completed' : 'pending'),
+      })
+
+      reset()
+      setPhotoFile(null)
+      setAadhaarFile(null)
+      setAadhaarBackFile(null)
+    } catch (err) {
+      console.error('Booking submit error:', err)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -141,6 +140,7 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
           No vacant beds available
         </Typography>
       )}
+
       <Section title="Customer Information">
         <Field control={control} name="name" label="Full Name" rules={{ required: 'Name is required' }} errors={errors} />
         <Field control={control} name="phone" label="Phone Number" rules={{ required: 'Phone is required' }} errors={errors} />
@@ -213,7 +213,7 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
         <Controller name="bedId" control={control} rules={{
           required: 'Select a bed',
           validate: (value) => {
-            const bed = enrichedBeds.find((b) => normId(b.id) === normId(value))
+            const bed = enrichedBeds.find((b) => String(b.id) === String(value))
             if (!bed) return 'Select a bed'
             if (!filterVacantBeds([bed]).length) return 'Selected bed is already occupied'
             return true
@@ -290,7 +290,6 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
             size="small"
           />
         )} />
-
         <Controller name="advancePaid" control={control} render={({ field }) => (
           <TextField {...field} fullWidth type="number" label="Advance" onChange={(e) => field.onChange(Number(e.target.value))} sx={amountFieldSx} size="small" />
         )} />
@@ -305,7 +304,6 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
         <Controller name="paymentStatus" control={control} render={({ field }) => (
           <PaymentStatusSelect label="Advance Payment Status" value={field.value} onChange={field.onChange} />
         )} />
-
         <TextField
           fullWidth
           label="Balance"
@@ -333,8 +331,13 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
 
       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>
         <Button variant="outlined" onClick={onCancel} sx={{ height: 44 }}>Cancel</Button>
-        <Button type="submit" variant="contained" sx={primaryButtonSx} disabled={loading || vacantBedsList.length === 0}>
-          Save Booking
+        <Button
+          type="submit"
+          variant="contained"
+          sx={primaryButtonSx}
+          disabled={loading || submitting || vacantBedsList.length === 0}
+        >
+          {submitting ? 'Saving...' : 'Save Booking'}
         </Button>
       </Box>
     </Box>

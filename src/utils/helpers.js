@@ -68,12 +68,11 @@ export const displayValue = (value, fallback = '—') => {
   return value
 }
 
-/** Ignore placeholder avatar URLs when showing customer photos */
-export const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false
-  if (url.includes('pravatar.cc')) return false
-  return true
-}
+// Fixed — accepts both URLs and base64 data URIs
+export const isValidImageUrl = (url) =>
+  typeof url === 'string' &&
+  url.length > 10 &&
+  (url.startsWith('http') || url.startsWith('data:image/'))
 
 const COMMON_MENU = [
   { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard' },
@@ -119,13 +118,13 @@ export const getPageTitle = (pathname) => {
 }
 
 export const getRoomStatus = (room, beds) => {
-  const roomBeds = beds.filter((b) => b.roomId === room.id)
+  const roomBeds = beds.filter((b) => String(b.roomId) === String(room.id))
   if (!roomBeds.length) return 'vacant'
   return roomBeds.some((b) => b.status !== 'vacant') ? 'occupied' : 'vacant'
 }
 
 export const getRoomCostPerBed = (room, beds) => {
-  const roomBeds = beds.filter((b) => b.roomId === room.id)
+  const roomBeds = beds.filter((b) => String(b.roomId) === String(room.id))
   if (!roomBeds.length) return room.costPerBed || 0
   return room.costPerBed ?? roomBeds[0]?.cost ?? 0
 }

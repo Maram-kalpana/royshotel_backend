@@ -44,11 +44,11 @@ const hotelSlice = createSlice({
       recalcStats(state)
     },
     updateFloor: (state, action) => {
-      const index = state.floors.findIndex((f) => f.id === action.payload.id)
+      const index = state.floors.findIndex((f) => String(f.id) === String(action.payload.id))
       if (index !== -1) state.floors[index] = { ...state.floors[index], ...action.payload }
     },
     deleteFloor: (state, action) => {
-      state.floors = state.floors.filter((f) => f.id !== action.payload)
+      state.floors = state.floors.filter((f) => String(f.id) !== String(action.payload))
       recalcStats(state)
     },
     addRoom: (state, action) => {
@@ -92,7 +92,7 @@ const hotelSlice = createSlice({
       recalcStats(state)
     },
     updateRoom: (state, action) => {
-      const index = state.rooms.findIndex((r) => r.id === action.payload.id)
+      const index = state.rooms.findIndex((r) => String(r.id) === String(action.payload.id))
       if (index === -1) return
 
       const prev = state.rooms[index]
@@ -114,12 +114,12 @@ const hotelSlice = createSlice({
         costPerBed: cost,
       }
 
-      const roomBeds = state.beds.filter((b) => b.roomId === prev.id)
+      const roomBeds = state.beds.filter((b) => String(b.roomId) === String(prev.id))
       const newCount = Number(numberOfBeds) || roomBeds.length
       const currentCount = roomBeds.length
 
       roomBeds.forEach((bed) => {
-        const bedIndex = state.beds.findIndex((b) => b.id === bed.id)
+        const bedIndex = state.beds.findIndex((b) => String(b.id) === String(bed.id))
         if (bedIndex !== -1) {
           state.beds[bedIndex] = {
             ...state.beds[bedIndex],
@@ -150,11 +150,11 @@ const hotelSlice = createSlice({
         const vacantBeds = roomBeds.filter((b) => b.status === 'vacant')
         const toRemove = currentCount - newCount
         vacantBeds.slice(0, toRemove).forEach((bed) => {
-          state.beds = state.beds.filter((b) => b.id !== bed.id)
+          state.beds = state.beds.filter((b) => String(b.id) !== String(bed.id))
         })
       }
 
-      const updatedBeds = state.beds.filter((b) => b.roomId === prev.id)
+      const updatedBeds = state.beds.filter((b) => String(b.roomId) === String(prev.id))
       state.rooms[index].vacantBeds = updatedBeds.filter((b) => b.status === 'vacant').length
       state.rooms[index].occupiedBeds = updatedBeds.filter((b) => b.status !== 'vacant').length
       state.rooms[index].totalBeds = updatedBeds.length
@@ -163,12 +163,12 @@ const hotelSlice = createSlice({
     },
     deleteRoom: (state, action) => {
       const roomId = action.payload
-      state.rooms = state.rooms.filter((r) => r.id !== roomId)
-      state.beds = state.beds.filter((b) => b.roomId !== roomId)
+      state.rooms = state.rooms.filter((r) => String(r.id) !== String(roomId))
+      state.beds = state.beds.filter((b) => String(b.roomId) !== String(roomId))
       recalcStats(state)
     },
     updateBed: (state, action) => {
-      const index = state.beds.findIndex((b) => b.id === action.payload.id)
+      const index = state.beds.findIndex((b) => String(b.id) === String(action.payload.id))
       if (index !== -1) state.beds[index] = { ...state.beds[index], ...action.payload }
       recalcStats(state)
     },

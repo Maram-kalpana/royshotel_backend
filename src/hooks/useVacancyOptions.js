@@ -85,10 +85,19 @@ export function useVacancyOptions({ enabled = true, debugLabel = 'Vacancy' } = {
       await loadRooms(dispatch)
 
       if (import.meta.env.DEV) {
-        console.log(`[${debugLabel}] API floors:`, mappedFloors)
-        console.log(`[${debugLabel}] API rooms:`, mappedRooms)
-        console.log(`[${debugLabel}] API beds:`, mappedBeds)
-        console.log(`[${debugLabel}] Vacant Beds:`, filterVacantBeds(mappedBeds))
+        console.group(`[${debugLabel}] API Data`)
+        console.log('floors:', mappedFloors.length, mappedFloors)
+        console.log('rooms:', mappedRooms.length, mappedRooms)
+        console.log('beds:', mappedBeds.length, mappedBeds)
+        const vacantCount = filterVacantBeds(mappedBeds).length
+        console.log('vacant beds:', vacantCount)
+        if (mappedBeds.length && !vacantCount) {
+          console.warn(`⚠️ ${mappedBeds.length} beds loaded but 0 detected as vacant.`)
+          console.warn('Sample bed:', JSON.stringify(mappedBeds[0], null, 2))
+          console.warn('Statuses:', [...new Set(mappedBeds.map((b) => b.status))])
+          console.warn('CustomerIds:', [...new Set(mappedBeds.map((b) => String(b.customerId)))])
+        }
+        console.groupEnd()
       }
 
       return { floors: mappedFloors, rooms: mappedRooms, beds: mappedBeds }
@@ -155,7 +164,7 @@ export function useVacancyOptions({ enabled = true, debugLabel = 'Vacancy' } = {
     getVacantRooms: (selectedFloorId) => getVacantRooms(rooms, vacantBeds, floors, selectedFloorId),
     getVacantBedsForRoom: (roomId, includeBedId) => {
       const list = includeBedId
-        ? [...vacantBeds, ...beds.filter((b) => normId(b.id) === normId(includeBedId) && !vacantBeds.some((v) => normId(v.id) === normId(b.id)))]
+        ? [...vacantBeds, ...beds.filter((b) => String(b.id) === String(includeBedId) && !vacantBeds.some((v) => String(v.id) === String(b.id)))]
         : vacantBeds
       return getVacantBedsForRoom(list, roomId, rooms)
     },

@@ -39,8 +39,8 @@ export const buildTenantFormDefaults = (tenant, customer, booking, beds = [], fl
   if (!tenant) return emptyDefaults()
 
   const bedId = tenant.bedId || customer?.bedId || booking?.bedId || ''
-  const bed = beds.find((b) => normId(b.id) === normId(bedId))
-  const floor = bed ? floors.find((f) => normId(f.id) === normId(bed.floorId) || Number(f.number) === Number(bed.floorNumber)) : null
+  const bed = beds.find((b) => String(b.id) === String(bedId))
+  const floor = bed ? floors.find((f) => String(f.id) === String(bed.floorId) || Number(f.number) === Number(bed.floorNumber)) : null
 
   const checkIn = splitDateTime(tenant.checkInDateTime || booking?.checkInDateTime || customer?.checkInDate || tenant.checkInDate)
   const checkOut = splitDateTime(tenant.checkOutDateTime || booking?.checkOutDateTime || tenant.checkOutDate || customer?.checkOutDate || '')
@@ -110,8 +110,8 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
   const availableBeds = useMemo(() => {
     const vacant = filterVacantBeds(enrichedBeds)
     if (editMode && currentBedId) {
-      const current = enrichedBeds.find((b) => normId(b.id) === normId(currentBedId))
-      if (current && !vacant.some((b) => normId(b.id) === normId(currentBedId))) {
+      const current = enrichedBeds.find((b) => String(b.id) === String(currentBedId))
+      if (current && !vacant.some((b) => String(b.id) === String(currentBedId))) {
         return [...vacant, current]
       }
     }
@@ -143,8 +143,8 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
     [availableBeds, newRoomId, rooms],
   )
 
-  const currentBed = enrichedBeds.find((b) => normId(b.id) === normId(currentBedId))
-  const selectedBedData = enrichedBeds.find((b) => normId(b.id) === normId(selectedBed))
+  const currentBed = enrichedBeds.find((b) => String(b.id) === String(currentBedId))
+  const selectedBedData = enrichedBeds.find((b) => String(b.id) === String(selectedBed))
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
@@ -174,7 +174,7 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
 
     if (!editMode) {
       if (!data.floorId || !data.roomId || !data.bedId) return
-      const bed = enrichedBeds.find((b) => normId(b.id) === normId(data.bedId))
+      const bed = enrichedBeds.find((b) => String(b.id) === String(data.bedId))
       if (!bed || !filterVacantBeds([bed]).length) return
     }
 
@@ -252,7 +252,7 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
       <Section title="Stay Information">
         {editMode ? (
           <>
-            <TextField label="Floor" value={currentBed ? floors.find((f) => f.id === currentBed.floorId)?.name || `Floor ${currentBed.floorNumber}` : '—'} InputProps={{ readOnly: true }} sx={fieldSx} fullWidth />
+            <TextField label="Floor" value={currentBed ? floors.find((f) => String(f.id) === String(currentBed.floorId))?.name || `Floor ${currentBed.floorNumber}` : '—'} InputProps={{ readOnly: true }} sx={fieldSx} fullWidth />
             <TextField label="Room" value={currentBed?.roomNumber ? `Room ${currentBed.roomNumber}` : '—'} InputProps={{ readOnly: true }} sx={fieldSx} fullWidth />
             <TextField label="Bed" value={currentBed ? `Bed ${currentBed.bedNumber}` : '—'} InputProps={{ readOnly: true }} sx={fieldSx} fullWidth />
           </>
@@ -307,7 +307,7 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
             <Controller name="bedId" control={control} rules={{
               required: 'Select a bed',
               validate: (value) => {
-                const bed = enrichedBeds.find((b) => normId(b.id) === normId(value))
+                const bed = enrichedBeds.find((b) => String(b.id) === String(value))
                 if (!bed) return 'Select a bed'
                 if (!filterVacantBeds([bed]).length) return 'Selected bed is already occupied'
                 return true

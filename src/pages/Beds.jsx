@@ -11,7 +11,7 @@ const Beds = () => {
   const roomGroups = useMemo(() => {
     const groups = {}
     rooms.forEach((room) => {
-      groups[room.id] = { room, beds: beds.filter((b) => b.roomId === room.id) }
+      groups[room.id] = { room, beds: beds.filter((b) => String(b.roomId) === String(room.id)) }
     })
     return Object.values(groups)
   }, [beds, rooms])

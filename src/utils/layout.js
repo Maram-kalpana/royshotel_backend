@@ -44,24 +44,33 @@ export const fieldSx = {
 }
 
 /** Select menus inside drawers — must sit above drawer modal (1400) */
+// export const drawerSelectMenuProps = {
+//   disablePortal: false,
+//   disableAutoFocus: true,
+//   disableEnforceFocus: true,
+//   disableScrollLock: true,
+//   anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+//   transformOrigin: { vertical: 'top', horizontal: 'left' },
+//   PaperProps: {
+//     sx: {
+//       maxHeight: 280,
+//       zIndex: 2000,
+//     },
+//     style: { zIndex: 2000 },
+//   },
+//   MenuListProps: { sx: { zIndex: 2000 } },
+//   sx: { zIndex: 2000 },
+// }
+/** Select menus inside drawers — must sit above drawer modal (1400) */
 export const drawerSelectMenuProps = {
-  disablePortal: false,
   disableAutoFocus: true,
   disableEnforceFocus: true,
-  disableScrollLock: true,
   anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
   transformOrigin: { vertical: 'top', horizontal: 'left' },
-  PaperProps: {
-    sx: {
-      maxHeight: 280,
-      zIndex: 2000,
-    },
-    style: { zIndex: 2000 },
+  slotProps: {
+    paper: { sx: { maxHeight: 280 } },
   },
-  MenuListProps: { sx: { zIndex: 2000 } },
-  sx: { zIndex: 2000 },
 }
-
 export const filterFieldSx = {
   ...fieldSx,
   flex: { xs: '1 1 0', md: '1 1 180px' },

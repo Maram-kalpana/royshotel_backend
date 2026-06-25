@@ -71,7 +71,7 @@ const MonthlyPayments = () => {
   const currentMonth = getCurrentMonthYear()
 
   const tableRows = useMemo(() => tenants.map((t) => {
-    const customer = customers.find((c) => c.id === t.customerId)
+    const customer = customers.find((c) => String(c.id) === String(t.customerId))
     return {
       id: t.id,
       customerName: displayValue(t.customerName),
@@ -95,7 +95,7 @@ const MonthlyPayments = () => {
     return rows
   }, [tableRows, statusFilter, currentMonth])
 
-  const editCustomer = editTenant ? customers.find((c) => c.id === editTenant.customerId) : null
+  const editCustomer = editTenant ? customers.find((c) => String(c.id) === String(editTenant.customerId)) : null
 
   const buildTenantPayload = (data, bed) => ({
     name: data.name,
@@ -129,7 +129,7 @@ const MonthlyPayments = () => {
       toast.error('Please select floor, room, and bed')
       return
     }
-    const bed = beds.find((b) => normId(b.id) === normId(data.bedId))
+    const bed = beds.find((b) => String(b.id) === String(data.bedId))
     if (!bed || !filterVacantBeds([bed]).length) {
       toast.error('Selected bed is no longer available. Please choose another bed.')
       await vacancy.reload()
@@ -137,7 +137,7 @@ const MonthlyPayments = () => {
     }
 
     try {
-      const bed = beds.find((b) => b.id === data.bedId)
+      const bed = beds.find((b) => String(b.id) === String(data.bedId))
       await monthlyPaymentsApi.create(buildTenantPayload(data, bed))
       await reloadTenantData()
       toast.success('Monthly tenant added successfully')
@@ -159,7 +159,7 @@ const MonthlyPayments = () => {
     }
     try {
       const targetBedId = data.newBedId || data.bedId
-      const bed = beds.find((b) => b.id === targetBedId)
+      const bed = beds.find((b) => String(b.id) === String(targetBedId))
       await monthlyPaymentsApi.update(editTenant.id, {
         ...buildTenantPayload(data, bed),
         customerName: data.name,
@@ -202,8 +202,8 @@ const MonthlyPayments = () => {
     }
   }
 
-  const viewCustomer = viewTenant ? customers.find((c) => c.id === viewTenant.customerId) : null
-  const viewBed = viewTenant ? beds.find((b) => b.id === (viewTenant.bedId || viewCustomer?.bedId)) : null
+  const viewCustomer = viewTenant ? customers.find((c) => String(c.id) === String(viewTenant.customerId)) : null
+  const viewBed = viewTenant ? beds.find((b) => String(b.id) === String(viewTenant.bedId || viewCustomer?.bedId)) : null
   const viewCustomerMerged = viewTenant ? {
     ...(viewCustomer || {}),
     ...viewTenant,

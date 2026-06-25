@@ -13,10 +13,10 @@ const Vacancies = () => {
   const occupancyMap = useMemo(() => floors.map((floor) => ({
     ...floor,
     rooms: rooms
-      .filter((r) => r.floorId === floor.id)
+      .filter((r) => String(r.floorId) === String(floor.id))
       .map((room) => ({
         ...room,
-        beds: beds.filter((b) => b.roomId === room.id),
+        beds: beds.filter((b) => String(b.roomId) === String(room.id)),
       })),
   })), [floors, rooms, beds])
 
