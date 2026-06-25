@@ -5,7 +5,7 @@ import PageTransition from '../components/PageTransition'
 import ProfileCard from '../components/ProfileCard'
 import DataTable from '../components/DataTable'
 import { useCustomers, useBookings } from '../hooks/useStore'
-import { formatCurrency, formatDate, displayValue } from '../utils/helpers'
+import { formatCurrency, formatDate, displayValue, getImageSrc } from '../utils/helpers'
 
 const CustomerProfile = () => {
   const { id } = useParams()
@@ -67,9 +67,10 @@ const CustomerProfile = () => {
                 {tab === 1 && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
-                      { label: 'Customer Photo', src: customer.photo },
-                      { label: 'Aadhaar Document', src: null },
-                      { label: 'PAN Document', src: null },
+                      { label: 'Customer Photo', src: getImageSrc(customer.photo) },
+                      { label: 'Aadhaar Front', src: getImageSrc(customer.aadhaarFront || customer.aadhaarDoc) },
+                      { label: 'Aadhaar Back', src: getImageSrc(customer.aadhaarBack) },
+                      { label: 'PAN Document', src: getImageSrc(customer.panDoc) },
                     ].map((doc) => (
                       <div key={doc.label} className="rounded-xl border border-slate-200 p-4 text-center">
                         {doc.src ? (

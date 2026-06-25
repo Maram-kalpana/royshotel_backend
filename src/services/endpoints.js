@@ -200,6 +200,16 @@ export const accountsApi = {
   },
 }
 
+export const uploadsApi = {
+  upload: async (file, field = 'photo') => {
+    console.log('API Request Started: POST /uploads', { field, fileName: file?.name })
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('field', field)
+    return unwrap(await api.post('/uploads', formData))
+  },
+}
+
 export const settingsApi = {
   get: async () => {
     console.log('API Request Started: GET /settings')

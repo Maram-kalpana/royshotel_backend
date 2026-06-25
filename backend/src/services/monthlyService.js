@@ -483,13 +483,14 @@ export const updateTenant = async (id, data) => {
     }
 
     if (existing.customer_id) {
+      const [custRows] = await conn.execute('SELECT * FROM customers WHERE id = ?', [existing.customer_id])
+      const cust = custRows[0] || {}
+
       await conn.execute(
         `UPDATE customers SET name=?, phone=?, address=?, city=?, state=?, aadhaar=?, pan=?,
-          photo_url=COALESCE(?, photo_url), aadhaar_doc_url=COALESCE(?, aadhaar_doc_url),
-          aadhaar_front_url=COALESCE(?, aadhaar_front_url), aadhaar_back_url=COALESCE(?, aadhaar_back_url),
-          pan_doc_url=COALESCE(?, pan_doc_url), driving_license_url=COALESCE(?, driving_license_url),
-          notes=COALESCE(?, notes), monthly_rent=?, due_day=?, security_deposit=COALESCE(?, security_deposit),
-          check_out_datetime=COALESCE(?, check_out_datetime)
+          photo_url=?, aadhaar_doc_url=?, aadhaar_front_url=?, aadhaar_back_url=?,
+          pan_doc_url=?, driving_license_url=?, notes=?, monthly_rent=?, due_day=?, security_deposit=?,
+          check_out_datetime=?
          WHERE id=?`,
         [
           nullish(data.name) || nullish(data.customerName) || existing.customer_name,
@@ -499,17 +500,17 @@ export const updateTenant = async (id, data) => {
           nullish(data.state),
           nullish(data.aadhaar),
           nullish(data.pan),
-          nullish(data.photo),
-          nullish(data.aadhaarDoc),
-          nullish(data.aadhaarFront),
-          nullish(data.aadhaarBack),
-          nullish(data.panDoc),
-          nullish(data.drivingLicense),
-          nullish(data.notes),
+          data.photo !== undefined ? data.photo : cust.photo_url,
+          data.aadhaarDoc !== undefined ? data.aadhaarDoc : cust.aadhaar_doc_url,
+          data.aadhaarFront !== undefined ? data.aadhaarFront : cust.aadhaar_front_url,
+          data.aadhaarBack !== undefined ? data.aadhaarBack : cust.aadhaar_back_url,
+          data.panDoc !== undefined ? data.panDoc : cust.pan_doc_url,
+          data.drivingLicense !== undefined ? data.drivingLicense : cust.driving_license_url,
+          data.notes !== undefined ? data.notes : cust.notes,
           data.monthlyRent ?? existing.monthly_rent,
           data.dueDay ?? existing.due_day,
-          data.advancePaid != null ? Number(data.advancePaid) : null,
-          nullish(data.checkOutDateTime),
+          data.advancePaid != null ? Number(data.advancePaid) : cust.security_deposit,
+          data.checkOutDateTime !== undefined ? data.checkOutDateTime : cust.check_out_datetime,
           existing.customer_id,
         ],
       )

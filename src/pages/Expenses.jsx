@@ -10,7 +10,8 @@ import DrawerFormStack from '../components/DrawerFormStack'
 import { useExpenses, useAppDispatch } from '../hooks/useStore'
 import { loadExpenses } from '../services/dataService'
 import { expensesApi } from '../services/endpoints'
-import { formatCurrency, formatDate } from '../utils/helpers'
+import { formatCurrency, formatDate, getImageSrc } from '../utils/helpers'
+import { fileStateFromUrl, resolveImageForSubmit } from '../utils/fileHelpers'
 import PageToolbar from '../components/PageToolbar'
 import { filterFieldSx, fieldSx, primaryButtonSx, expenseFilterFieldSx, toolbarButtonSx } from '../utils/layout'
 import { GridActions } from '../components/tableCells'
@@ -97,7 +98,7 @@ const Expenses = () => {
         description: expense.description || '',
         receipt: expense.receipt || null,
       })
-      setReceiptFile(expense.receipt ? { preview: expense.receipt, name: 'receipt.jpg' } : null)
+      setReceiptFile(expense.receipt ? fileStateFromUrl(expense.receipt, 'receipt.jpg') : null)
     } else {
       setEditExpense(null)
       setForm(emptyForm)
@@ -118,14 +119,19 @@ const Expenses = () => {
       return
     }
 
-    const payload = {
-      ...form,
-      type: form.type.trim(),
-      amount: Number(form.amount),
-      receipt: receiptFile?.preview || form.receipt || null,
-    }
-
     try {
+      const receipt = await resolveImageForSubmit(receiptFile, editExpense?.receipt, 'receipt')
+
+      const payload = {
+        ...form,
+        type: form.type.trim(),
+        amount: Number(form.amount),
+        receipt,
+      }
+
+      console.log('Submitting Data:', payload)
+      console.log('Images:', { receipt })
+
       if (editExpense) {
         await expensesApi.update(editExpense.id, payload)
         toast.success('Expense updated successfully')

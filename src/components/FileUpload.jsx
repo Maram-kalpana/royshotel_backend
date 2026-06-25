@@ -36,8 +36,10 @@ const FileUpload = ({
 
   const handleFile = (file) => {
     if (!file) return
-    const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
-    onChange({ file, name: file.name, type: file.type, preview })
+    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+    console.log('Selected File:', file)
+    console.log('Preview URL:', previewUrl)
+    onChange({ file, name: file.name, type: file.type, preview: previewUrl })
   }
 
   const handleRemove = () => {
@@ -193,9 +195,10 @@ const FileUpload = ({
           return
         }
         const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' })
-        // Generate preview URL immediately from the blob so it's always available
-        const preview = URL.createObjectURL(blob)
-        onChange({ file, name: file.name, type: file.type, preview })
+        const previewUrl = URL.createObjectURL(blob)
+        console.log('Selected File:', file)
+        console.log('Preview URL:', previewUrl)
+        onChange({ file, name: file.name, type: file.type, preview: previewUrl })
         stopStream()
         setCameraOpen(false)
         setCameraError('')
@@ -272,15 +275,15 @@ const FileUpload = ({
         </Box>
       ) : (
         <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 2, bgcolor: '#f8fafc' }}>
-          {isImage && value.preview && (
+          {(isImage || value.preview) && value.preview && (
             <Box
               component="img"
               src={value.preview}
               alt={label}
               sx={{
-                width: '100%',
-                maxHeight: 200,
-                objectFit: 'contain',
+                width: 120,
+                height: 120,
+                objectFit: 'cover',
                 borderRadius: 1,
                 mb: 1,
                 bgcolor: '#000',

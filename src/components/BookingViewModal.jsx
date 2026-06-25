@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import DrawerDetailItem from './DrawerDetailItem'
 import PaymentStatusBadge from './PaymentStatusBadge'
 import {
-  formatCurrency, formatDate, formatDateTime, formatStayDuration,
+  formatCurrency, formatDate, formatDateTime, formatStayDuration, getImageSrc,
 } from '../utils/helpers'
 
 const Section = ({ title, children }) => (
@@ -47,9 +47,9 @@ const BookingViewModal = ({ open, onClose, booking, customer }) => {
 
   // Resolve images — field may live on `customer` or directly on `booking`
   // depending on how your backend stores/returns data.
-  const photo      = customer?.photo      || booking?.photo
-  const aadhaarDoc = customer?.aadhaarDoc || booking?.aadhaarDoc   // Aadhaar front
-  const aadhaarBack = customer?.aadhaarBack || booking?.aadhaarBack // Aadhaar back
+  const photo      = getImageSrc(customer?.photo      || booking?.photo)
+  const aadhaarDoc = getImageSrc(customer?.aadhaarDoc || customer?.aadhaarFront || booking?.aadhaarDoc)
+  const aadhaarBack = getImageSrc(customer?.aadhaarBack || booking?.aadhaarBack)
 
   return (
     <Dialog open={open} onClose={onClose} fullScreen>

@@ -90,12 +90,13 @@ export const createBooking = async (data) => {
 
     await conn.execute(
       `INSERT INTO customers (id, name, phone, email, address, city, state, aadhaar, pan,
-        photo_url, aadhaar_doc_url, pan_doc_url, status, room_id, bed_id, room_number, bed_number,
+        photo_url, aadhaar_doc_url, aadhaar_front_url, aadhaar_back_url, pan_doc_url, status, room_id, bed_id, room_number, bed_number,
         floor_number, check_in_date, check_in_datetime, stay_type, security_deposit, monthly_rent, due_day, joining_date)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         customerId, data.name, data.phone, data.email || null, data.address, data.city, data.state,
-        data.aadhaar, data.pan, data.photo || null, data.aadhaarDoc || null, data.panDoc || null,
+        data.aadhaar, data.pan, data.photo || null, data.aadhaarDoc || null,
+        data.aadhaarFront || data.aadhaarDoc || null, data.aadhaarBack || null, data.panDoc || null,
         'checked-in', bed.room_id, bed.id, bed.room_number, bed.bed_number, bed.floor_number,
         checkInDate, data.checkInDateTime, data.stayType, 0, Number(data.monthlyRent || 0), data.dueDay || null, checkInDate,
       ],

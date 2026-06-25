@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Avatar, Dialog, IconButton } from '@mui/material'
 import { X, ZoomIn } from 'lucide-react'
-import { isValidImageUrl } from '../utils/helpers'
+import { getImageSrc } from '../utils/helpers'
 
 const DOC_FIELDS = [
   { key: 'photo', label: 'Photo' },
@@ -14,7 +14,7 @@ const DocumentSection = ({ customer }) => {
 
   const getSrc = (doc) => {
     const val = customer[doc.key] || (doc.fallback ? customer[doc.fallback] : null)
-    return isValidImageUrl(val) ? val : null
+    return getImageSrc(val)
   }
 
   return (

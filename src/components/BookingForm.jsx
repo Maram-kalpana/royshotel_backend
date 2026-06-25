@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
 import { formatCurrency, parseDurationInput } from '../utils/helpers'
-import { fileToBase64 } from '../utils/fileHelpers'
+import { resolveImageForSubmit } from '../utils/fileHelpers'
 import { getVacantFloors, getVacantRooms, getVacantBedsForRoom, filterVacantBeds, enrichBedsWithRooms, normId } from '../utils/vacancyHelpers'
 import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx, drawerSelectMenuProps } from '../utils/layout'
 import DateTimeSplitField, { combineDateAndTime } from './DateTimeSplitField'
@@ -85,12 +85,14 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
 
     setSubmitting(true)
     try {
-      // ── Convert files to Base64 so they survive page reloads and DB storage ──
-      const [photoBase64, aadhaarFrontBase64, aadhaarBackBase64] = await Promise.all([
-        fileToBase64(photoFile?.file ?? null),
-        fileToBase64(aadhaarFile?.file ?? null),
-        fileToBase64(aadhaarBackFile?.file ?? null),
+      const [photo, aadhaarDoc, aadhaarBack] = await Promise.all([
+        resolveImageForSubmit(photoFile, null, 'photo'),
+        resolveImageForSubmit(aadhaarFile, null, 'aadhaarFront'),
+        resolveImageForSubmit(aadhaarBackFile, null, 'aadhaarBack'),
       ])
+
+      console.log('Submitting Data:', data)
+      console.log('Images:', { photo, aadhaarDoc, aadhaarBack })
 
       const checkInDateTime = combineDateAndTime(data.checkInDate, data.checkInTime)
 
@@ -108,10 +110,10 @@ const BookingForm = ({ floors, rooms, beds, onSubmit, onCancel, loading = false 
         balancePaymentDate: data.balancePaymentDate
           ? combineDateAndTime(data.balancePaymentDate, data.checkInTime)
           : '',
-        // ── Persistent base64 image strings ──────────────────────────────────
-        photo: photoBase64,           // used in BookingViewModal as customer.photo
-        aadhaarDoc: aadhaarFrontBase64, // Aadhaar front — shown as customer.aadhaarDoc
-        aadhaarBack: aadhaarBackBase64, // Aadhaar back  — shown as customer.aadhaarBack
+        photo,
+        aadhaarDoc,
+        aadhaarFront: aadhaarDoc,
+        aadhaarBack,
         paymentStatus: balanceAmount > 0
           ? (data.balancePaymentStatus === 'completed' ? 'completed' : 'pending')
           : (data.paymentStatus === 'completed' ? 'completed' : 'pending'),

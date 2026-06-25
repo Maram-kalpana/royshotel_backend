@@ -68,11 +68,22 @@ export const displayValue = (value, fallback = '—') => {
   return value
 }
 
-// Fixed — accepts both URLs and base64 data URIs
+/** True for http(s), /uploads/, data:image/, and blob: preview URLs. */
 export const isValidImageUrl = (url) =>
   typeof url === 'string' &&
-  url.length > 10 &&
-  (url.startsWith('http') || url.startsWith('data:image/'))
+  url.length > 4 &&
+  (
+    url.startsWith('http') ||
+    url.startsWith('data:image/') ||
+    url.startsWith('/uploads/') ||
+    url.startsWith('blob:')
+  )
+
+/** Normalize image src for <img> — relative /uploads/ paths work via Vite proxy. */
+export const getImageSrc = (url) => {
+  if (!isValidImageUrl(url)) return null
+  return url
+}
 
 const COMMON_MENU = [
   { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard' },

@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { TextField, Button, MenuItem, Typography, Box } from '@mui/material'
 import dayjs from 'dayjs'
-import { formatCurrency, isValidImageUrl } from '../../utils/helpers'
+import { formatCurrency } from '../../utils/helpers'
+import { fileStateFromUrl, resolveImageForSubmit } from '../../utils/fileHelpers'
 import { getVacantFloors, getVacantRooms, getVacantBedsForRoom, filterVacantBeds, enrichBedsWithRooms, normId } from '../../utils/vacancyHelpers'
 import { fieldSx, primaryButtonSx, drawerFormStackSx, amountFieldSx, drawerSectionSx, drawerSelectMenuProps } from '../../utils/layout'
 import DateTimeSplitField, { combineDateAndTime, splitDateTime } from '../DateTimeSplitField'
@@ -78,6 +79,7 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
   const [photoFile, setPhotoFile] = useState(null)
   const [aadhaarFile, setAadhaarFile] = useState(null)
   const [aadhaarBackFile, setAadhaarBackFile] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const defaults = useMemo(
     () => buildTenantFormDefaults(tenant, customer, booking, beds, floors),
@@ -88,10 +90,11 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
 
   useEffect(() => {
     reset(defaults)
-    setPhotoFile(null)
-    setAadhaarFile(null)
-    setAadhaarBackFile(null)
-  }, [defaults, reset, tenant?.id])
+    const src = customer || tenant
+    setPhotoFile(fileStateFromUrl(src?.photo, 'photo.jpg'))
+    setAadhaarFile(fileStateFromUrl(src?.aadhaarFront || src?.aadhaarDoc, 'aadhaar-front.jpg'))
+    setAadhaarBackFile(fileStateFromUrl(src?.aadhaarBack, 'aadhaar-back.jpg'))
+  }, [defaults, reset, tenant?.id, customer?.id])
 
   const selectedFloor = watch('floorId')
   const selectedRoom = watch('roomId')
@@ -166,7 +169,7 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
     if (monthlyRent > 0) setValue('totalAmount', monthlyRent)
   }, [monthlyRent, setValue])
 
-  const handleFormSubmit = (data) => {
+  const handleFormSubmit = async (data) => {
     const advance = Number(data.advancePaid) || 0
     if (advance > 0 && !data.paymentDate) {
       return
@@ -184,35 +187,49 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
       : null
     const rent = Number(data.monthlyRent) || 0
 
-    onSubmit({
-      ...data,
-      stayType: 'Months',
-      duration: 1,
-      checkInDateTime,
-      checkOutDateTime,
-      bedCost: selectedBedData?.cost || currentBed?.cost || rent,
-      totalAmount: rent,
-      balanceAmount: rent,
-      monthlyRent: rent,
-      advancePaid: advance,
-      dueDay: Number(data.dueDay) || 1,
-      paymentDate: data.paymentDate,
-      securityDeposit: advance,
-      bedId: data.newBedId || data.bedId || currentBedId,
-      newFloorId: data.newFloorId || '',
-      newRoomId: data.newRoomId || '',
-      newBedId: data.newBedId || '',
-      shiftDate: data.shiftDate || '',
-      photoFile,
-      aadhaarFile,
-      photo: photoFile?.preview
-        || (isValidImageUrl(tenant?.photo) ? tenant.photo : null)
-        || (isValidImageUrl(customer?.photo) ? customer.photo : null),
-      aadhaarDoc: aadhaarFile?.preview || (isValidImageUrl(tenant?.aadhaarDoc) ? tenant.aadhaarDoc : null) || (isValidImageUrl(customer?.aadhaarDoc) ? customer.aadhaarDoc : null),
-      aadhaarFront: aadhaarFile?.preview || (isValidImageUrl(tenant?.aadhaarFront) ? tenant.aadhaarFront : null) || (isValidImageUrl(customer?.aadhaarFront) ? customer.aadhaarFront : null),
-      aadhaarBack: aadhaarBackFile?.preview || (isValidImageUrl(tenant?.aadhaarBack) ? tenant.aadhaarBack : null) || (isValidImageUrl(customer?.aadhaarBack) ? customer.aadhaarBack : null),
-      paymentStatus: 'pending',
-    })
+    const src = customer || tenant
+    setSubmitting(true)
+    try {
+      const [photo, aadhaarFront, aadhaarBack] = await Promise.all([
+        resolveImageForSubmit(photoFile, src?.photo, 'photo'),
+        resolveImageForSubmit(aadhaarFile, src?.aadhaarFront || src?.aadhaarDoc, 'aadhaarFront'),
+        resolveImageForSubmit(aadhaarBackFile, src?.aadhaarBack, 'aadhaarBack'),
+      ])
+
+      console.log('Submitting Data:', data)
+      console.log('Images:', { photo, aadhaarFront, aadhaarBack })
+
+      await onSubmit({
+        ...data,
+        stayType: 'Months',
+        duration: 1,
+        checkInDateTime,
+        checkOutDateTime,
+        bedCost: selectedBedData?.cost || currentBed?.cost || rent,
+        totalAmount: rent,
+        balanceAmount: rent,
+        monthlyRent: rent,
+        advancePaid: advance,
+        dueDay: Number(data.dueDay) || 1,
+        paymentDate: data.paymentDate,
+        securityDeposit: advance,
+        bedId: data.newBedId || data.bedId || currentBedId,
+        newFloorId: data.newFloorId || '',
+        newRoomId: data.newRoomId || '',
+        newBedId: data.newBedId || '',
+        shiftDate: data.shiftDate || '',
+        photo,
+        aadhaarDoc: aadhaarFront,
+        aadhaarFront,
+        aadhaarBack,
+        paymentStatus: 'pending',
+      })
+    } catch (err) {
+      console.error('Tenant submit error:', err)
+      throw err
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -444,8 +461,8 @@ const TenantForm = ({ floors, rooms, beds, onSubmit, onCancel, tenant, customer,
 
       <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 1 }}>
         <Button variant="outlined" onClick={onCancel} sx={{ height: 44 }}>Cancel</Button>
-        <Button type="submit" variant="contained" sx={primaryButtonSx} disabled={!editMode && (loading || filterVacantBeds(enrichedBeds).length === 0)}>
-          {editMode ? 'Update Tenant' : 'Save Tenant'}
+        <Button type="submit" variant="contained" sx={primaryButtonSx} disabled={submitting || (!editMode && (loading || filterVacantBeds(enrichedBeds).length === 0))}>
+          {submitting ? 'Saving...' : editMode ? 'Update Tenant' : 'Save Tenant'}
         </Button>
       </Box>
     </Box>

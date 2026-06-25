@@ -13,6 +13,8 @@ const mapCustomer = (row) => ({
   pan: row.pan,
   photo: row.photo_url,
   aadhaarDoc: row.aadhaar_doc_url,
+  aadhaarFront: row.aadhaar_front_url || row.aadhaar_doc_url,
+  aadhaarBack: row.aadhaar_back_url,
   panDoc: row.pan_doc_url,
   status: row.status,
   roomId: row.room_id,
@@ -55,12 +57,13 @@ export const createCustomer = async (data) => {
   const id = data.id || generateId('cust')
   await query(
     `INSERT INTO customers (id, name, phone, email, address, city, state, aadhaar, pan,
-      photo_url, aadhaar_doc_url, pan_doc_url, status, room_id, bed_id, room_number, bed_number,
+      photo_url, aadhaar_doc_url, aadhaar_front_url, aadhaar_back_url, pan_doc_url, status, room_id, bed_id, room_number, bed_number,
       floor_number, check_in_date, check_in_datetime, stay_type, security_deposit, monthly_rent, due_day, joining_date)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       id, data.name, data.phone, data.email || null, data.address, data.city, data.state,
-      data.aadhaar, data.pan, data.photo || null, data.aadhaarDoc || null, data.panDoc || null,
+      data.aadhaar, data.pan, data.photo || null, data.aadhaarDoc || null,
+      data.aadhaarFront || data.aadhaarDoc || null, data.aadhaarBack || null, data.panDoc || null,
       data.status || 'checked-in', data.roomId || null, data.bedId || null, data.roomNumber || null,
       data.bedNumber || null, data.floorNumber || null, data.checkInDate || null, data.checkInDateTime || null,
       data.stayType || null, data.securityDeposit || 0, data.monthlyRent || 0, data.dueDay || null,
@@ -73,12 +76,14 @@ export const createCustomer = async (data) => {
 export const updateCustomer = async (id, data) => {
   await query(
     `UPDATE customers SET name=?, phone=?, email=?, address=?, city=?, state=?, aadhaar=?, pan=?,
-      photo_url=?, aadhaar_doc_url=?, pan_doc_url=?, room_id=?, bed_id=?, room_number=?, bed_number=?,
+      photo_url=?, aadhaar_doc_url=?, aadhaar_front_url=?, aadhaar_back_url=?, pan_doc_url=?,
+      room_id=?, bed_id=?, room_number=?, bed_number=?,
       floor_number=?, check_in_date=?, check_in_datetime=?, stay_type=?, security_deposit=?, monthly_rent=?, due_day=?
      WHERE id=?`,
     [
       data.name, data.phone, data.email, data.address, data.city, data.state, data.aadhaar, data.pan,
-      data.photo, data.aadhaarDoc, data.panDoc, data.roomId, data.bedId, data.roomNumber, data.bedNumber,
+      data.photo ?? null, data.aadhaarDoc ?? null, data.aadhaarFront ?? null, data.aadhaarBack ?? null,
+      data.panDoc ?? null, data.roomId, data.bedId, data.roomNumber, data.bedNumber,
       data.floorNumber, data.checkInDate, data.checkInDateTime, data.stayType, data.securityDeposit || 0,
       data.monthlyRent || 0, data.dueDay, id,
     ],
